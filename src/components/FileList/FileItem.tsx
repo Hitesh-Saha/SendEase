@@ -19,6 +19,7 @@ type FileItemProps = {
   fileName: string;
   fileSize: number;
   fileType: string;
+  isRecieveMode: boolean;
   DeleteFile?: () => void;
 };
 
@@ -26,6 +27,7 @@ const FileItem = ({
   fileName,
   fileSize,
   fileType,
+  isRecieveMode,
   DeleteFile,
 }: FileItemProps) => {
 
@@ -63,15 +65,6 @@ const FileItem = ({
           <ListItem>
             <ListItemAvatar>
               <Avatar sx={{ bgcolor: "secondary.main" }}>
-                {/* {fileType === "application/x-zip-compressed" ? (
-                  <Folder />
-                ) : fileType === ("image/jpeg" || "image/png") ? (
-                  <Image />
-                ) : fileType === "application/pdf" ? (
-                  <PictureAsPdf />
-                ) : (
-                  <InsertDriveFile />
-                )} */}
                 {getFileTypeIcon(fileType)}
               </Avatar>
             </ListItemAvatar>
@@ -81,12 +74,12 @@ const FileItem = ({
             />
           </ListItem>
         </List>
-        <Delete
+        {!isRecieveMode && <Delete
           color="secondary"
           fontSize="large"
           sx={{ cursor: "pointer" }}
           onClick={DeleteFile}
-        />
+        />}
       </Box>
     </>
   );

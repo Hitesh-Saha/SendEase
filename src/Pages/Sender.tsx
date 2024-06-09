@@ -10,10 +10,13 @@ import {
   TextField,
   Tooltip,
   Divider,
+  Link,
+  Breadcrumbs,
 } from "@mui/material";
 import {
   CloudUpload,
   FileCopy,
+  NavigateNext,
 } from "@mui/icons-material";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
@@ -51,9 +54,11 @@ const Sender = () => {
 
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        const { peerId } = data;
-        setReciever(peerId);
-        setStatus(`Connected to Reciever`);
+        if (data.type === "connect") {
+          const { peerId } = data;
+          setReciever(peerId);
+          setStatus(`Reciever Connected`);
+        }
       });
       connInstance.current = conn;
     });
@@ -67,7 +72,6 @@ const Sender = () => {
     setIsProgressBar(true)
     if (event.target.files && event.target.files[0]) {
       setStatus('Uploading...')
-      setFile(event.target.files[0]);
       const reader = new FileReader();
       reader.onload = (ev) => {
         if (reader.result) {
@@ -82,6 +86,7 @@ const Sender = () => {
         setProgress(Math.round((ev.loaded/ev.total)*100))
       }
       reader.readAsArrayBuffer(event.target.files[0]);
+      setFile(event.target.files[0]);
     }
   };
 
@@ -92,10 +97,12 @@ const Sender = () => {
         fileName: file?.name,
         fileSize: file?.size,
         fileType: file?.type,
-        contents: fileContents
+        contents: fileContents,
+        type: 'file'
       }
+      connInstance.current?.send({message: 'Sending File'})
       connInstance.current?.send(uploadedFile);
-      setStatus('File Sent');
+      setStatus('Sending File...');
     }
   };
 
@@ -106,6 +113,7 @@ const Sender = () => {
       const conn = peer.current.connect(reciever);
       conn.on("open", () => {
         setCurrentRecieverStatus('Connected')
+        conn.send({message: 'Connection Established'});
       });
       connInstance.current = conn;
     }
@@ -128,13 +136,9 @@ const Sender = () => {
     setFileContents(null)
   }
 
-  const resetStatus = () => {
-    setStatus('');
-  }
-
   return (
     <>
-      <Grid container direction="row" spacing={2} padding={3} flexWrap='nowrap'>
+      <Grid container direction="row" spacing={2} flexWrap='nowrap'>
         <Grid item xs={12} md={8} paddingRight={"1rem"}>
           <Grid container direction="column" spacing={3}>
             <Grid item width="100%">
@@ -219,7 +223,7 @@ const Sender = () => {
               item
               sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
             >
-              {file && <FileItem fileName={file?.name || ''} fileSize={file?.size || 0} fileType={file?.type} DeleteFile={DeleteFileHandler}/>}
+              {file && <FileItem fileName={file?.name || ''} fileSize={file?.size || 0} fileType={file?.type} isRecieveMode={false} DeleteFile={DeleteFileHandler}/>}
             </Grid>
           </Grid>
         </Grid>

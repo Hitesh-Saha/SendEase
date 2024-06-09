@@ -24,6 +24,8 @@ const HomePage = () => {
         alignItems={"center"}
       >
         <Grid item>
+        {/* <Typography>Seamless, Secure, and Decentralized File Sharing</Typography>
+        <Typography>Effortlessly share your files with anyone, anywhere.</Typography> */}
           <Typography
             component="h1"
             variant="h5"
