@@ -1,4 +1,4 @@
-import { Sync } from "@mui/icons-material";
+import { Sync, Troubleshoot } from "@mui/icons-material";
 import {
   Avatar,
   Button,
@@ -10,14 +10,7 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
-import { getAvatar } from "../../utils/utils";
-
-type RecieverPanelProps = {
-  reciever: string | null;
-  status?: string;
-  isRecieveMode: boolean;
-  connectReciever?: () => void;
-};
+import { RecieverPanelProps } from "../../models/common";
 
 const RecieverPanel = ({
   reciever,
@@ -27,7 +20,7 @@ const RecieverPanel = ({
 }: RecieverPanelProps) => {
   return (
     <>
-      <Grid item xs={12} md={4} width="100%">
+      <Grid item xs={12} md={true}>
         <Grid container direction="column" spacing={3} width="100%">
           <Grid item>
             <Typography variant="h6" color="text.secondary">
@@ -43,9 +36,9 @@ const RecieverPanel = ({
               >
                 <ListItem>
                   <ListItemAvatar>
-                    <Avatar src={getAvatar()}/>
+                    <Avatar src={reciever.avatar}/>
                   </ListItemAvatar>
-                  <ListItemText primary={reciever} secondary={status} />
+                  <ListItemText primary={reciever.username} secondary={status} />
                   {!isRecieveMode && (
                     <ListItemSecondaryAction>
                       <Button

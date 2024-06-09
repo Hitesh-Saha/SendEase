@@ -20,7 +20,7 @@ export const getFileTypeIcon = (type: string) => {
 
 export const getAvatar = () => {
   const generator = new AvatarGenerator();
-  const avatar = generator.generateRandomAvatar('avatar');
+  const avatar = generator.generateRandomAvatar();
   return avatar;
 }
 
