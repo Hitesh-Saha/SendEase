@@ -1,4 +1,4 @@
-import { Sync, Troubleshoot } from "@mui/icons-material";
+import { Sync } from "@mui/icons-material";
 import {
   Avatar,
   Button,

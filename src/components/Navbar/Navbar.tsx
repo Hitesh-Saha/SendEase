@@ -1,4 +1,4 @@
-import { Box, Grid, Typography } from "@mui/material"
+import { Box, Typography } from "@mui/material"
 import logo from '../../assets/logo.png';
 
 const Navbar = () => {
