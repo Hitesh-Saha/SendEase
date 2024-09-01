@@ -1,10 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
-import Receiver from "./Pages/Receiver";
-import Sender from "./Pages/Sender";
-import Landing from "./Pages/Landing";
 import { CssBaseline } from "@mui/material";
-import HomePage from "./Pages/HomePage";
+import Router from "./Router";
 
 
 const App = () => {
@@ -101,17 +97,7 @@ const App = () => {
 
   return (
     <>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/sender" element={<Sender />} />
-            <Route path="/receiver" element={<Receiver />} />
-            <Route path="/receiver/:id" element={<Receiver />} />
-            <Route path="/*" element={<Navigate to='/' />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <Router />
       <CssBaseline />
     </>
   );

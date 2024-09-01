@@ -25,7 +25,7 @@ import serverless from "../assets/computer.png";
 import transfer from "../assets/data-exchange.png";
 import crossPlatform from "../assets/cross-platform.png";
 import collaboration from "../assets/collaborations.png";
-import anonymous from "../assets/hacker.png";
+import anonymous from "../assets/anonymous.png";
 import encrypt from "../assets/encrypt.png";
 
 const HomePage = () => {
@@ -42,15 +42,13 @@ const HomePage = () => {
   return (
     <>
       <Grid
-        item
-        sx={{
-          display: "flex",
-          gap: "1rem",
-          alignItems: "center",
-          justifyContent: "center",
-          paddingTop: "3rem !important",
-          paddingBottom: "2rem",
-        }}
+        container
+        direction={'row'}
+        gap={'1rem'}
+        alignItems={'center'}
+        justifyContent={'center'}
+        paddingTop={'3rem'}
+        paddingBottom={'2rem'}
       >
         <img src={logo} height="60rem" width="60rem" />
         <Typography
@@ -64,7 +62,7 @@ const HomePage = () => {
         </Typography>
       </Grid>
 
-      <Grid item paddingBottom={"2rem"}>
+      <Grid container paddingBottom={"2rem"} alignItems={'center'} justifyContent={'center'} direction={'column'}>
         {/* <Typography>Seamless, Secure, and Decentralized File Sharing</Typography>
         <Typography>Effortlessly share your files with anyone, anywhere.</Typography> */}
         <Typography
@@ -90,9 +88,9 @@ const HomePage = () => {
       </Grid>
 
       <Grid
-        item
-        height="35rem"
-        width="70rem"
+        container
+        height="30%"
+        width="80%"
         margin={"auto"}
         paddingBottom={"2rem"}
       >
@@ -105,7 +103,7 @@ const HomePage = () => {
         />
       </Grid>
 
-      <Grid item>
+      <Grid container direction={'column'} alignItems={'center'} justifyContent={'center'}>
         <Typography
           variant="h4"
           gutterBottom
@@ -190,7 +188,7 @@ const HomePage = () => {
         </Grid>
       </Grid>
 
-      <Grid item width={"80%"} marginX={"auto"}>
+      <Grid container width={"80%"} marginX={"auto"} direction={'column'} alignItems={'center'} justifyContent={'center'}>
         <Typography
           variant="h4"
           gutterBottom

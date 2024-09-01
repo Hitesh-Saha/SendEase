@@ -48,6 +48,7 @@ const Sender = () => {
   const [recieverDetails, setRecieverDetails] = useState<RecieverData | null>(
     null
   );
+  const [buttonDisabled, setButtonDisabled] = useState<boolean>(false);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
 
@@ -69,11 +70,6 @@ const Sender = () => {
             username: recieverName,
           });
           setStatus(`Reciever waiting in the lobby`);
-        } else {
-          const { message } = data;
-          if (message === "File Recieved") {
-            setStatus("File Sent Successfully");
-          }
         }
       });
       connInstance.current = conn;
@@ -118,10 +114,18 @@ const Sender = () => {
         contents: fileContents,
         type: "file",
       };
-      connInstance.current?.send({ message: "Sending File" });
-      connInstance.current?.send(uploadedFile);
-      connInstance.current?.send({ message: "File Sent" });
+      setButtonDisabled(true)
       setStatus("Sending File...");
+      connInstance.current?.send({ type: "send" });
+      connInstance.current?.send(uploadedFile);
+      connInstance.current?.send({ type: "end" });
+      connInstance.current.on("data", (data: any) => {
+        if (data.type === "recieve") {
+          setStatus("File Sent Successfully");
+          setButtonDisabled(false)
+          setFileContents(null)
+        }
+      });
     }
   };
 
@@ -229,6 +233,7 @@ const Sender = () => {
                     tabIndex={-1}
                     startIcon={<CloudUpload />}
                     size="large"
+                    disabled={buttonDisabled}
                   >
                     Upload file
                     <VisuallyHiddenInput
@@ -240,7 +245,7 @@ const Sender = () => {
                     variant="contained"
                     size="large"
                     onClick={sendFile}
-                    disabled={fileContents === null || reciever === null}
+                    disabled={fileContents === null || reciever === null || buttonDisabled}
                   >
                     Send File
                   </Button>

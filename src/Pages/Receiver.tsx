@@ -5,6 +5,7 @@ import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import { getAvatar, getName } from "../utils/utils";
 import { RecievedFileType, RecieverData } from "../models/common";
+import { ConnectingAirportsOutlined } from "@mui/icons-material";
 // import { useParams } from "react-router-dom";
 
 const recieverAvatar = getAvatar();
@@ -55,18 +56,11 @@ const Receiver = () => {
           setCurrentSenderStatus("Connected");
           setStatus('Connection Established');
         }
-        else {
-          const { message } = data;
-          if (message === "Connection Established"){
-            setCurrentSenderStatus("Connected");
-          }
-          else if (message === 'Sending File') {
-            setStatus('Recieving File...');
-          }
-          else if (message === 'File Sent') {
-            // setStatus('Recieved File');
-            setIsDownloaded(true);
-          }
+        else if (data.type === 'send') {
+          setStatus('Recieving File...');
+        }
+        else if (data.type === "end") {
+          setIsDownloaded(true);
         }
       });
       connInstance.current = conn;
@@ -90,7 +84,7 @@ const Receiver = () => {
     if(isDownloaded) {
       setStatus("File Downloaded Successfully");
       connInstance.current?.send({
-        message: 'File Recieved',
+        type: 'recieve',
       })
     }
   }, [isDownloaded])
