@@ -17,6 +17,8 @@ import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
 import { getAvatar, getName } from "../utils/utils";
 import { RecieverData } from "../models/common";
+import { encryptFile } from "../core/FileEncryption";
+import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
 
 const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -40,7 +42,7 @@ const Sender = () => {
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [isProgressBar, setIsProgressBar] = useState<boolean>(false);
-  const [fileContents, setFileContents] = useState<ArrayBuffer | string | null>(
+  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(
     null
   );
   const [currentRecieverStatus, setCurrentRecieverStatus] =
@@ -51,6 +53,8 @@ const Sender = () => {
   const [buttonDisabled, setButtonDisabled] = useState<boolean>(false);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
+  const aesKey = useRef<string>();
+  const encryptedAESKey = useRef<string>();
 
   const initializeSender = () => {
     // Initialize Peer
@@ -58,12 +62,15 @@ const Sender = () => {
     peer.current.on("open", (id) => {
       setPeerId(id);
     });
+    // Generate AES key
+    aesKey.current = generateAESKey();
 
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        if (data.type === "connect") {
-          const { peerId, recieverAvatar, recieverName } = data;
+        if (data.type == 'connect') {
+          const { peerId, recieverAvatar, recieverName, key } = data;
           setReciever(peerId);
+          encryptedAESKey.current = encryptAESKey(key, aesKey.current as string);
           setRecieverDetails({
             id: peerId,
             avatar: recieverAvatar,
@@ -88,7 +95,7 @@ const Sender = () => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         if (reader.result) {
-          setFileContents(reader.result);
+          setFileContents(reader.result as ArrayBuffer);
           if (ev.loaded === ev.total) {
             setStatus("File Uploaded");
             setTimeout(() => setIsProgressBar(false), 2000);
@@ -111,21 +118,44 @@ const Sender = () => {
         fileName: file?.name,
         fileSize: file?.size,
         fileType: file?.type,
-        contents: fileContents,
-        type: "file",
+        type: "fileMeta",
       };
       setButtonDisabled(true)
       setStatus("Sending File...");
-      connInstance.current?.send({ type: "send" });
+      connInstance.current?.send({ type: "start" });
       connInstance.current?.send(uploadedFile);
-      connInstance.current?.send({ type: "end" });
-      connInstance.current.on("data", (data: any) => {
-        if (data.type === "recieve") {
-          setStatus("File Sent Successfully");
-          setButtonDisabled(false)
-          setFileContents(null)
-        }
-      });
+      sendFileInChunks()
+      connInstance.current?.send({ type: "end", fileName: file?.name });
+    }
+  };
+  
+  connInstance.current?.on("data", (data: any) => {
+    if (data.type === "recieve") {
+      setStatus("File Sent Successfully");
+      setButtonDisabled(false)
+      setFileContents(null)
+    }
+  });
+
+  const sendFileInChunks = () => {
+    const chunkSize = 16 * 1024; // 16 KB per chunk
+    let offset = 0;
+    let sequence = 0;
+
+    // Slice the file into chunks
+    while (offset < (fileContents as ArrayBuffer).byteLength) {
+      const chunk = new Uint8Array((fileContents as ArrayBuffer).slice(offset, offset + chunkSize));
+      const encryptedChunk = encryptFile(chunk, aesKey.current as string);
+      if(connInstance.current?.open) {
+        connInstance.current?.send({
+          contents: encryptedChunk,
+          sequence,
+          type: "chunk"
+        });
+      }
+      offset += chunkSize;
+      sequence += 1;
+
     }
   };
 
@@ -138,6 +168,7 @@ const Sender = () => {
         conn.send({
           senderAvatar,
           senderName,
+          key: encryptedAESKey.current,
           type: "connect",
         });
         setCurrentRecieverStatus("Connected");
@@ -145,13 +176,6 @@ const Sender = () => {
       });
       connInstance.current = conn;
     }
-    // else {
-    //   connInstance.current?.close();
-    //   connInstance.current?.on("close", () => {
-    //     setCurrentRecieverStatus('Disconnected')
-    //     // setStatus("Connected to Reciever");
-    //   });
-    // }
   };
 
   const handleCopy = (e: React.MouseEvent<HTMLElement>) => {
@@ -251,7 +275,7 @@ const Sender = () => {
                   </Button>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body1">{status}</Typography>
+                  <Typography variant="h6" >{`${status}`}</Typography>
                   {isProgressBar && (
                     <Box
                       sx={{

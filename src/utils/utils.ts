@@ -1,3 +1,4 @@
+import { TwelveMp } from '@mui/icons-material';
 import { AvatarGenerator } from 'random-avatar-generator';
 import { uniqueNamesGenerator, Config, adjectives, animals } from 'unique-names-generator';
 
@@ -33,4 +34,12 @@ export const getName = () => {
   };
   const randomName: string = uniqueNamesGenerator(customConfig);
   return randomName;
+}
+
+export const socialLinks = {
+  email: 'rupam367ro@gmail.com',
+  instagram: 'https://www.instagram.com/storm_charger_03',
+  linkedIn: 'https://www.linkedin.com/in/hitesh-saha-5401671b3/',
+  github: 'https://github.com/Hitesh-Saha',
+  twitter: 'https://x.com/hiteshsaha03?s=21',
 }

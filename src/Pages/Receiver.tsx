@@ -5,8 +5,8 @@ import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import { getAvatar, getName } from "../utils/utils";
 import { RecievedFileType, RecieverData } from "../models/common";
-import { ConnectingAirportsOutlined } from "@mui/icons-material";
-// import { useParams } from "react-router-dom";
+import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
+import { decryptFile } from "../core/FileDecryption";
 
 const recieverAvatar = getAvatar();
 const recieverName = getName();
@@ -20,9 +20,16 @@ const Receiver = () => {
   const [senderDetails, setSenderDetails] = useState<RecieverData | null>(null);
   const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const privateKey = useRef<string | null>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
-  // const { id: senderId } = useParams();
+  const recievedFileChunks = useRef<Record<number,Uint8Array>>({});
+  const aesKey = useRef<string>();
+
+  useEffect(() => {
+    initializeReciever();
+  }, []);
 
   const initializeReciever = () => {
     peer.current = new Peer();
@@ -30,24 +37,26 @@ const Receiver = () => {
       setPeerId(id as string);
     });
 
-    peer.current.on("connection", (conn) => {
+    const keys = generateRSAPairKeys()
+    privateKey.current = keys.privateKey;
+    setPublicKey(keys.publicKey);
+
+    peer.current?.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        if (data.type === "file") {
-          const { fileName, fileSize, fileType, contents } = data;
+        if (data.type === "fileMeta") {
+          const { fileName, fileSize, fileType } = data;
           setFile({
             name: fileName,
             size: fileSize,
             type: fileType,
           });
-          const blob = new Blob([contents]);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          a.click();
-          setStatus("File recieved successfully");
+        }else if (data.type === "chunk") {
+          if (!aesKey.current) return;
+          const { sequence, contents } = data;
+          recieveFileChunks(contents, sequence)
         } else if (data.type === 'connect') {
-          const { senderAvatar, senderName } = data;
+          const { senderAvatar, senderName, key } = data;
+          aesKey.current = decryptAESKey(privateKey.current as string, key);
           setSenderDetails({
             id: sender || '',
             avatar: senderAvatar,
@@ -56,38 +65,52 @@ const Receiver = () => {
           setCurrentSenderStatus("Connected");
           setStatus('Connection Established');
         }
-        else if (data.type === 'send') {
+        else if (data.type === 'start') {
           setStatus('Recieving File...');
         }
         else if (data.type === "end") {
-          setIsDownloaded(true);
+          const { fileName } = data;
+          downloadFile(fileName)
         }
       });
       connInstance.current = conn;
     });
-
-    // if(senderId){
-    //   setSender(senderId);
-    //   const conn = peerInstance?.connect(senderId);
-    //   conn?.on("open", () => {
-    //     conn.send(`peerId:${peerId}`);
-    //     setStatus("Connected to peer");
-    //   });
-    // }
   };
 
-  useEffect(() => {
-    initializeReciever();
-  }, []);
 
   useEffect(() => {
-    if(isDownloaded) {
+    senderResponse()
+  }, [isDownloaded]);
+
+  const recieveFileChunks = (encryptedChunk: string, sequence: number) => {
+  if (!aesKey.current) return;
+
+  const decryptedChunk = decryptFile(encryptedChunk, aesKey.current);
+  recievedFileChunks.current[sequence] = decryptedChunk;
+};
+
+  const downloadFile = (fileName: string) => {
+    const allChunks = Object.keys(recievedFileChunks.current)
+    .sort((a, b) => Number(a) - Number(b))
+    .map(key => recievedFileChunks.current[Number(key)]);
+    const blob = new Blob(allChunks);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    setStatus("File recieved successfully");
+    setIsDownloaded(true);
+  }
+
+  const senderResponse = () => {
+    if (isDownloaded && connInstance.current) {
       setStatus("File Downloaded Successfully");
       connInstance.current?.send({
         type: 'recieve',
       })
     }
-  }, [isDownloaded])
+  }
 
   const createConnection = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
@@ -100,6 +123,7 @@ const Receiver = () => {
           peerId,
           recieverAvatar,
           recieverName,
+          key: publicKey,
           type: 'connect'
         });
         setStatus("Connection request sent to the sender");
