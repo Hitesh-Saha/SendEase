@@ -20,7 +20,7 @@ type FileItemProps = {
   fileSize: number;
   fileType: string;
   isRecieveMode: boolean;
-  DeleteFile?: () => void;
+  deleteFile?: () => void;
 };
 
 const FileItem = ({
@@ -28,7 +28,7 @@ const FileItem = ({
   fileSize,
   fileType,
   isRecieveMode,
-  DeleteFile,
+  deleteFile,
 }: FileItemProps) => {
 
   const getFileTypeIcon = (type: string) => {
@@ -78,7 +78,7 @@ const FileItem = ({
           color="secondary"
           fontSize="large"
           sx={{ cursor: "pointer" }}
-          onClick={DeleteFile}
+          onClick={deleteFile}
         />}
       </Box>
     </>

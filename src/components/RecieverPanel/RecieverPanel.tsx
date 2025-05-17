@@ -46,7 +46,7 @@ const RecieverPanel = ({
                         onClick={connectReciever}
                         startIcon={<Sync />}
                       >
-                        {status === "Disconnected" ? "Connect" : "Disconnect"}
+                        {status === "Disconnected" ? "Accept" : "Disconnect"}
                       </Button>
                     </ListItemSecondaryAction>
                   )}

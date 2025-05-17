@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Peer, { DataConnection } from "peerjs";
 import {
   Button,
@@ -17,6 +17,8 @@ import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
 import { getAvatar, getName } from "../utils/utils";
 import { RecieverData } from "../models/common";
+import { encryptFile } from "../core/FileEncryption";
+import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
 
 const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -40,7 +42,7 @@ const Sender = () => {
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [isProgressBar, setIsProgressBar] = useState<boolean>(false);
-  const [fileContents, setFileContents] = useState<ArrayBuffer | string | null>(
+  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(
     null
   );
   const [currentRecieverStatus, setCurrentRecieverStatus] =
@@ -48,81 +50,122 @@ const Sender = () => {
   const [recieverDetails, setRecieverDetails] = useState<RecieverData | null>(
     null
   );
+  const [buttonDisabled, setButtonDisabled] = useState<boolean>(false);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
+  const aesKey = useRef<string>();
+  const encryptedAESKey = useRef<string>();
 
-  const initializeSender = () => {
-    // Initialize Peer
+  const initializeSender =  useCallback(() => {
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id);
     });
 
+    aesKey.current = generateAESKey();
+
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        if (data.type === "connect") {
-          const { peerId, recieverAvatar, recieverName } = data;
+        if (data.type == 'connect') {
+          const { peerId, recieverAvatar, recieverName, key } = data;
           setReciever(peerId);
+          encryptedAESKey.current = encryptAESKey(key, aesKey.current!);
           setRecieverDetails({
             id: peerId,
             avatar: recieverAvatar,
             username: recieverName,
           });
           setStatus(`Reciever waiting in the lobby`);
-        } else {
-          const { message } = data;
-          if (message === "File Recieved") {
-            setStatus("File Sent Successfully");
-          }
         }
       });
       connInstance.current = conn;
     });
-  };
+  }, []);
+
   useEffect(() => {
     initializeSender();
-  }, []);
+    return () => {
+      peer.current?.destroy();
+    };
+  }, [initializeSender]);
 
   // Handle file input change
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
-    setIsProgressBar(true);
     if (event.target.files && event.target.files[0]) {
+      const selectedFile = event.target.files[0];
+      setIsProgressBar(true);
       setStatus("Uploading...");
       const reader = new FileReader();
       reader.onload = (ev) => {
         if (reader.result) {
-          setFileContents(reader.result);
+          setFileContents(reader.result as ArrayBuffer);
           if (ev.loaded === ev.total) {
             setStatus("File Uploaded");
-            setTimeout(() => setIsProgressBar(false), 2000);
+            setTimeout(() => {
+              setIsProgressBar(false);
+              setProgress(0);
+            }, 2000);
           }
         }
       };
       reader.onprogress = (ev) => {
         setProgress(Math.round((ev.loaded / ev.total) * 100));
       };
-      reader.readAsArrayBuffer(event.target.files[0]);
-      setFile(event.target.files[0]);
+      reader.readAsArrayBuffer(selectedFile);
+      setFile(selectedFile);
     }
   };
 
   // Send file to connected peer
   const sendFile = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
-    if (connInstance.current && fileContents) {
-      const uploadedFile = {
-        fileName: file?.name,
-        fileSize: file?.size,
-        fileType: file?.type,
-        contents: fileContents,
-        type: "file",
-      };
-      connInstance.current?.send({ message: "Sending File" });
-      connInstance.current?.send(uploadedFile);
-      connInstance.current?.send({ message: "File Sent" });
-      setStatus("Sending File...");
+    if (!fileContents || !connInstance.current) return;
+
+    setButtonDisabled(true)
+    setStatus("Sending File...");
+
+    connInstance.current?.send({
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      type: "file-meta",
+    });
+    connInstance.current?.send({ type: "start" });
+    sendFileInChunks()
+    connInstance.current?.send({ type: "end" });
+  };
+  
+  connInstance.current?.on("data", (data: any) => {
+    if (data.type === "finished") {
+      setStatus("File Sent Successfully");
+      setButtonDisabled(false)
+      setFileContents(null)
     }
+  });
+
+  const sendFileInChunks = () => {
+    const chunkSize = 16 * 1024; // 16 KB per chunk
+    let offset = 0;
+    let sequence = 0;
+
+    const sendNextChunk = () => {
+      if (!fileContents || !connInstance.current?.open) return;
+
+      if (offset >= fileContents.byteLength) return;
+
+      const chunk = new Uint8Array(fileContents.slice(offset, offset + chunkSize));
+      const encryptedChunk = encryptFile(chunk, aesKey.current!);
+      connInstance.current?.send({
+        contents: encryptedChunk,
+        sequence,
+        type: "file-data-chunk",
+      });
+      offset += chunkSize;
+      sequence += 1;
+      sendNextChunk();
+    }
+    sendNextChunk();
   };
 
   const connectReciever = () => {
@@ -134,28 +177,27 @@ const Sender = () => {
         conn.send({
           senderAvatar,
           senderName,
+          key: encryptedAESKey.current,
           type: "connect",
         });
         setCurrentRecieverStatus("Connected");
         setStatus("Connection Established");
+        connInstance.current = conn;
       });
-      connInstance.current = conn;
     }
-    // else {
-    //   connInstance.current?.close();
-    //   connInstance.current?.on("close", () => {
-    //     setCurrentRecieverStatus('Disconnected')
-    //     // setStatus("Connected to Reciever");
-    //   });
-    // }
+    else {
+      connInstance.current?.close();
+      setCurrentRecieverStatus("Disconnected");
+      setStatus("Connection Closed");
+    }
   };
 
   const handleCopy = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
-    navigator.clipboard.writeText(peerId ?? "");
+    if (peerId) navigator.clipboard.writeText(peerId);
   };
 
-  const DeleteFileHandler = () => {
+  const deleteFileHandler = () => {
     setStatus("File Removed");
     setFile(null);
     setFileContents(null);
@@ -229,6 +271,7 @@ const Sender = () => {
                     tabIndex={-1}
                     startIcon={<CloudUpload />}
                     size="large"
+                    disabled={buttonDisabled}
                   >
                     Upload file
                     <VisuallyHiddenInput
@@ -240,13 +283,13 @@ const Sender = () => {
                     variant="contained"
                     size="large"
                     onClick={sendFile}
-                    disabled={fileContents === null || reciever === null}
+                    disabled={fileContents === null || reciever === null || buttonDisabled}
                   >
                     Send File
                   </Button>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body1">{status}</Typography>
+                  <Typography variant="h6" >{`${status}`}</Typography>
                   {isProgressBar && (
                     <Box
                       sx={{
@@ -281,7 +324,7 @@ const Sender = () => {
                   fileSize={file?.size || 0}
                   fileType={file?.type}
                   isRecieveMode={false}
-                  DeleteFile={DeleteFileHandler}
+                  deleteFile={deleteFileHandler}
                 />
               )}
             </Grid>

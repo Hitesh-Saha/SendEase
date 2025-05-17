@@ -1,27 +1,48 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Peer, { DataConnection } from "peerjs";
-import { Avatar, Button, Divider, Grid, TextField, Typography } from "@mui/material";
+import { Avatar, Button, Divider, Grid, LinearProgress, TextField, Typography } from "@mui/material";
 import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import { getAvatar, getName } from "../utils/utils";
-import { RecievedFileType, RecieverData } from "../models/common";
-// import { useParams } from "react-router-dom";
+import { PeerData, RecievedFileType, RecieverData } from "../models/common";
+import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
+import { decryptFile } from "../core/FileDecryption";
 
 const recieverAvatar = getAvatar();
 const recieverName = getName();
 
 const Receiver = () => {
   const [peerId, setPeerId] = useState<string | null>(null);
-  const [file, setFile] = useState<RecievedFileType | null>(null);
   const [sender, setSender] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
   const [currentSenderStatus, setCurrentSenderStatus] = useState<string>("Disconnected");
   const [senderDetails, setSenderDetails] = useState<RecieverData | null>(null);
-  const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const privateKey = useRef<string | null>(null);
+  const file = useRef<RecievedFileType | null>(null);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
-  // const { id: senderId } = useParams();
+  const recievedFileChunks = useRef<Record<number,Uint8Array>>({});
+  const aesKey = useRef<string>('');
+  const startTime = useRef<number | null>(null);
+  const receivedBytes = useRef<number>(0);
+  const [progress, setProgress] = useState<number>(0);
+  const [speed, setSpeed] = useState<string | null>(null);
+  const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    initializeReciever();
+
+    return () => {
+      if (peer.current) {
+        peer.current.destroy();
+      }
+      if (connInstance.current) {
+        connInstance.current.close();
+      }
+    };
+  }, []);
 
   const initializeReciever = () => {
     peer.current = new Peer();
@@ -29,71 +50,119 @@ const Receiver = () => {
       setPeerId(id as string);
     });
 
-    peer.current.on("connection", (conn) => {
-      conn.on("data", (data: any) => {
-        if (data.type === "file") {
-          const { fileName, fileSize, fileType, contents } = data;
-          setFile({
-            name: fileName,
-            size: fileSize,
-            type: fileType,
-          });
-          const blob = new Blob([contents]);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          a.click();
-          setStatus("File recieved successfully");
-        } else if (data.type === 'connect') {
-          const { senderAvatar, senderName } = data;
-          setSenderDetails({
-            id: sender || '',
-            avatar: senderAvatar,
-            username: senderName,
-          })
-          setCurrentSenderStatus("Connected");
-          setStatus('Connection Established');
-        }
-        else {
-          const { message } = data;
-          if (message === "Connection Established"){
+    const keys = generateRSAPairKeys()
+    privateKey.current = keys.privateKey;
+    setPublicKey(keys.publicKey);
+
+    peer.current?.on("connection", (conn) => {
+      conn.on("data", (data: unknown) => {
+        const peerData = data as PeerData;
+        switch (peerData.type) {
+          case "connect":
+            if (!privateKey.current) return;
+            const { senderAvatar, senderName, key } = peerData;
+            aesKey.current = decryptAESKey(privateKey.current as string, key);
+            setSenderDetails({
+              id: sender || '',
+              avatar: senderAvatar,
+              username: senderName,
+            })
             setCurrentSenderStatus("Connected");
-          }
-          else if (message === 'Sending File') {
-            setStatus('Recieving File...');
-          }
-          else if (message === 'File Sent') {
-            // setStatus('Recieved File');
-            setIsDownloaded(true);
-          }
+            setStatus('Connection Established');
+            break;
+          case "file-meta":
+            file.current = {
+              name: peerData.fileName,
+              size: peerData.fileSize,
+              type: peerData.fileType,
+            };
+            break;
+          case "start":
+            if (!file.current) return;
+            startTime.current = Date.now();
+            receivedBytes.current = 0;
+            setEstimatedTime(null);
+            setProgress(0);
+            setSpeed(null);
+            setStatus("Recieving File...");
+            break;
+          case "file-data-chunk":
+            if (!aesKey.current || !file) return;
+            recieveFileChunks(peerData.contents, peerData.sequence)
+            break;
+          case "end":
+            downloadFile();
+            break;
+          default:
+            break;
         }
       });
       connInstance.current = conn;
     });
-
-    // if(senderId){
-    //   setSender(senderId);
-    //   const conn = peerInstance?.connect(senderId);
-    //   conn?.on("open", () => {
-    //     conn.send(`peerId:${peerId}`);
-    //     setStatus("Connected to peer");
-    //   });
-    // }
   };
 
-  useEffect(() => {
-    initializeReciever();
+  const updateStatus = useCallback((currentReceived: number, totalSize: number) => {
+    if (totalSize && startTime.current) {
+      const elapsedTime = (Date.now() - startTime.current) / 1000; // in seconds
+      const speedBps = currentReceived / elapsedTime; // bytes per sec
+      const speedKbps = speedBps / 1024;
+      const speedMbps = speedKbps / 1024;
+      const remainingBytes = totalSize - currentReceived;
+      const remainingTime = remainingBytes / speedBps;
+
+      const minutes = Math.floor(remainingTime / 60);
+      const seconds = Math.floor(remainingTime % 60);
+
+      if (minutes > 60) {
+        const hours = Math.floor(minutes / 60);
+        const newMinutes = Math.floor(minutes % 60);
+        setEstimatedTime(`${hours}h ${newMinutes}m ${seconds}s`);
+      }
+      else if (minutes > 0) {
+        setEstimatedTime(`${minutes}m ${seconds}s`);
+      } else {
+        setEstimatedTime(`${seconds}s`);
+      }
+      const newProgress = (currentReceived / totalSize) * 100;
+      setProgress(Math.round(Math.min(newProgress, 100)));
+      setSpeed(speedMbps >= 1 ? `${speedMbps.toFixed(2)} MB/s` : `${speedKbps.toFixed(2)} KB/s`);
+    }
   }, []);
 
-  useEffect(() => {
-    if(isDownloaded) {
+  // Function to handle the received file chunks
+  const recieveFileChunks = (encryptedChunk: string, sequence: number) => {
+    if (!aesKey.current) return;
+
+    const decryptedChunk = decryptFile(encryptedChunk, aesKey.current);
+    recievedFileChunks.current[sequence] = decryptedChunk;
+
+    receivedBytes.current += decryptedChunk.byteLength;
+    updateStatus(receivedBytes.current, file.current?.size || 0);
+
+    // setTimeout(() => {
+    //   updateStatus(currentReceived, file.current?.size || 0);
+    // }, 500);
+  };
+
+  const downloadFile = () => {
+    const allChunks = Object.keys(recievedFileChunks.current)
+    .sort((a, b) => Number(a) - Number(b))
+    .map(key => recievedFileChunks.current[Number(key)]);
+    const blob = new Blob(allChunks);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.current?.name || "recieved_file";
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (connInstance.current) {
       setStatus("File Downloaded Successfully");
       connInstance.current?.send({
-        message: 'File Recieved',
+        type: 'finished',
       })
     }
-  }, [isDownloaded])
+  }
 
   const createConnection = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
@@ -106,6 +175,7 @@ const Receiver = () => {
           peerId,
           recieverAvatar,
           recieverName,
+          key: publicKey,
           type: 'connect'
         });
         setStatus("Connection request sent to the sender");
@@ -122,7 +192,8 @@ const Receiver = () => {
     e.preventDefault();
     setSender(e.target.value);
     setIsConnected(false);
-  }
+    setCurrentSenderStatus("Disconnected");
+  };
 
   return (
     <>
@@ -159,15 +230,33 @@ const Receiver = () => {
             <Grid item xs={12}>
               <Typography variant="body1">{status}</Typography>
             </Grid>
+            {file.current && (
+              <Grid item xs={12}>
+                <LinearProgress
+                  variant="determinate"
+                  value={progress}
+                  sx={{ height: 10, borderRadius: 5, mt: 2 }}
+                />
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Progress: {progress.toFixed(2)}%
+                </Typography>
+                <Typography variant="body2">
+                  Estimated Time Left: {estimatedTime || "Calculating..."}
+                </Typography>
+                <Typography variant="body2">
+                  Speed: {speed || "Calculating..."}
+                </Typography>
+              </Grid>
+            )}
             <Grid
               item
               sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
             >
-              {file && (
+              {file.current && (
                 <FileItem
-                  fileName={file?.name || ""}
-                  fileSize={file?.size || 0}
-                  fileType={file?.type}
+                  fileName={file.current?.name || ""}
+                  fileSize={file.current?.size || 0}
+                  fileType={file.current?.type}
                   isRecieveMode={true}
                 />
               )}
