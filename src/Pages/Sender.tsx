@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Peer, { DataConnection } from "peerjs";
 import {
   Button,
@@ -56,13 +56,12 @@ const Sender = () => {
   const aesKey = useRef<string>();
   const encryptedAESKey = useRef<string>();
 
-  const initializeSender = () => {
-    // Initialize Peer
+  const initializeSender =  useCallback(() => {
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id);
     });
-    // Generate AES key
+
     aesKey.current = generateAESKey();
 
     peer.current.on("connection", (conn) => {
@@ -70,7 +69,7 @@ const Sender = () => {
         if (data.type == 'connect') {
           const { peerId, recieverAvatar, recieverName, key } = data;
           setReciever(peerId);
-          encryptedAESKey.current = encryptAESKey(key, aesKey.current as string);
+          encryptedAESKey.current = encryptAESKey(key, aesKey.current!);
           setRecieverDetails({
             id: peerId,
             avatar: recieverAvatar,
@@ -81,16 +80,21 @@ const Sender = () => {
       });
       connInstance.current = conn;
     });
-  };
+  }, []);
+
   useEffect(() => {
     initializeSender();
-  }, []);
+    return () => {
+      peer.current?.destroy();
+    };
+  }, [initializeSender]);
 
   // Handle file input change
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
-    setIsProgressBar(true);
     if (event.target.files && event.target.files[0]) {
+      const selectedFile = event.target.files[0];
+      setIsProgressBar(true);
       setStatus("Uploading...");
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -98,39 +102,42 @@ const Sender = () => {
           setFileContents(reader.result as ArrayBuffer);
           if (ev.loaded === ev.total) {
             setStatus("File Uploaded");
-            setTimeout(() => setIsProgressBar(false), 2000);
+            setTimeout(() => {
+              setIsProgressBar(false);
+              setProgress(0);
+            }, 2000);
           }
         }
       };
       reader.onprogress = (ev) => {
         setProgress(Math.round((ev.loaded / ev.total) * 100));
       };
-      reader.readAsArrayBuffer(event.target.files[0]);
-      setFile(event.target.files[0]);
+      reader.readAsArrayBuffer(selectedFile);
+      setFile(selectedFile);
     }
   };
 
   // Send file to connected peer
   const sendFile = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
-    if (connInstance.current && fileContents) {
-      const uploadedFile = {
-        fileName: file?.name,
-        fileSize: file?.size,
-        fileType: file?.type,
-        type: "fileMeta",
-      };
-      setButtonDisabled(true)
-      setStatus("Sending File...");
-      connInstance.current?.send({ type: "start" });
-      connInstance.current?.send(uploadedFile);
-      sendFileInChunks()
-      connInstance.current?.send({ type: "end", fileName: file?.name });
-    }
+    if (!fileContents || !connInstance.current) return;
+
+    setButtonDisabled(true)
+    setStatus("Sending File...");
+
+    connInstance.current?.send({
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      type: "file-meta",
+    });
+    connInstance.current?.send({ type: "start" });
+    sendFileInChunks()
+    connInstance.current?.send({ type: "end" });
   };
   
   connInstance.current?.on("data", (data: any) => {
-    if (data.type === "recieve") {
+    if (data.type === "finished") {
       setStatus("File Sent Successfully");
       setButtonDisabled(false)
       setFileContents(null)
@@ -142,21 +149,23 @@ const Sender = () => {
     let offset = 0;
     let sequence = 0;
 
-    // Slice the file into chunks
-    while (offset < (fileContents as ArrayBuffer).byteLength) {
-      const chunk = new Uint8Array((fileContents as ArrayBuffer).slice(offset, offset + chunkSize));
-      const encryptedChunk = encryptFile(chunk, aesKey.current as string);
-      if(connInstance.current?.open) {
-        connInstance.current?.send({
-          contents: encryptedChunk,
-          sequence,
-          type: "chunk"
-        });
-      }
+    const sendNextChunk = () => {
+      if (!fileContents || !connInstance.current?.open) return;
+
+      if (offset >= fileContents.byteLength) return;
+
+      const chunk = new Uint8Array(fileContents.slice(offset, offset + chunkSize));
+      const encryptedChunk = encryptFile(chunk, aesKey.current!);
+      connInstance.current?.send({
+        contents: encryptedChunk,
+        sequence,
+        type: "file-data-chunk",
+      });
       offset += chunkSize;
       sequence += 1;
-
+      sendNextChunk();
     }
+    sendNextChunk();
   };
 
   const connectReciever = () => {
@@ -173,17 +182,22 @@ const Sender = () => {
         });
         setCurrentRecieverStatus("Connected");
         setStatus("Connection Established");
+        connInstance.current = conn;
       });
-      connInstance.current = conn;
+    }
+    else {
+      connInstance.current?.close();
+      setCurrentRecieverStatus("Disconnected");
+      setStatus("Connection Closed");
     }
   };
 
   const handleCopy = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
-    navigator.clipboard.writeText(peerId ?? "");
+    if (peerId) navigator.clipboard.writeText(peerId);
   };
 
-  const DeleteFileHandler = () => {
+  const deleteFileHandler = () => {
     setStatus("File Removed");
     setFile(null);
     setFileContents(null);
@@ -310,7 +324,7 @@ const Sender = () => {
                   fileSize={file?.size || 0}
                   fileType={file?.type}
                   isRecieveMode={false}
-                  DeleteFile={DeleteFileHandler}
+                  deleteFile={deleteFileHandler}
                 />
               )}
             </Grid>
