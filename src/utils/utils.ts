@@ -38,7 +38,7 @@ export const getName = () => {
 export const socialLinks = {
   email: 'hiteshsaha52@gmail.com',
   instagram: 'https://www.instagram.com/storm_charger_03',
-  linkedIn: 'https://www.linkedin.com/in/hitesh-saha-5401671b3/',
+  linkedin: 'https://www.linkedin.com/in/hitesh-saha-5401671b3/',
   github: 'https://github.com/Hitesh-Saha',
   twitter: 'https://x.com/hiteshsaha03?s=21',
 }

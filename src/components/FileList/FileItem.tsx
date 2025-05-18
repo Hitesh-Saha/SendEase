@@ -8,10 +8,9 @@ import {
 import {
   Avatar,
   Box,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
+  IconButton,
+  Typography,
+  useTheme,
 } from "@mui/material";
 import { getFileSize } from "../../utils/utils";
 
@@ -30,11 +29,11 @@ const FileItem = ({
   isRecieveMode,
   deleteFile,
 }: FileItemProps) => {
+  const theme = useTheme();
 
   const getFileTypeIcon = (type: string) => {
     switch (type) {
       case 'image/jpeg':
-        return <Image />
       case 'image/png':
         return <Image />
       case 'application/pdf':
@@ -45,43 +44,74 @@ const FileItem = ({
         return <InsertDriveFile />
     }
   }
+
   return (
-    <>
-      <Box
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        p: 1.5,
+        borderRadius: 2,
+        transition: 'all 0.3s ease',
+        background: `linear-gradient(145deg, ${theme.palette.background.paper}80, ${theme.palette.background.default}40)`,
+        backdropFilter: 'blur(8px)',
+        border: `1px solid ${theme.palette.divider}20`,
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: `0 8px 24px ${theme.palette.primary.main}15`,
+        }
+      }}
+    >
+      <Avatar
         sx={{
-          display: "flex",
-          flexDirection: "row",
-          width: "100%",
-          gap: "0.8rem",
-          alignItems: "center",
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+          boxShadow: `0 2px 10px ${theme.palette.primary.main}40`,
+          transition: 'transform 0.2s ease',
+          '&:hover': {
+            transform: 'scale(1.05)',
+          }
         }}
       >
-        <List
+        {getFileTypeIcon(fileType)}
+      </Avatar>
+      <Box sx={{ flex: 1, ml: 1 }}>
+        <Typography
+          variant="body1"
           sx={{
-            bgcolor: "background.paper",
-            width: "100%",
+            fontWeight: 500,
+            color: theme.palette.text.primary,
+            mb: 0.5
           }}
         >
-          <ListItem>
-            <ListItemAvatar>
-              <Avatar sx={{ bgcolor: "secondary.main" }}>
-                {getFileTypeIcon(fileType)}
-              </Avatar>
-            </ListItemAvatar>
-            <ListItemText
-              primary={fileName}
-              secondary={getFileSize(fileSize)}
-            />
-          </ListItem>
-        </List>
-        {!isRecieveMode && <Delete
-          color="secondary"
-          fontSize="large"
-          sx={{ cursor: "pointer" }}
-          onClick={deleteFile}
-        />}
+          {fileName}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            color: theme.palette.text.secondary,
+            display: 'block'
+          }}
+        >
+          {getFileSize(fileSize)}
+        </Typography>
       </Box>
-    </>
+      {!isRecieveMode && (
+        <IconButton
+          onClick={deleteFile}
+          sx={{
+            color: theme.palette.error.main,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              background: `${theme.palette.error.main}15`,
+              transform: 'scale(1.1)',
+            }
+          }}
+        >
+          <Delete />
+        </IconButton>
+      )}
+    </Box>
   );
 };
 
