@@ -20,20 +20,12 @@ const CallToAction = () => {
       }}
     >
       <Container maxWidth="lg">
-        <Typography
+        <Styles.GradientText
           variant="h2"
           align="center"
-          sx={{
-            fontWeight: 800,
-            mb: 2,
-            background: `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            color: 'transparent',
-          }}
         >
           Start Sharing Now
-        </Typography>
+        </Styles.GradientText>
         <Typography
           variant="h5"
           align="center"

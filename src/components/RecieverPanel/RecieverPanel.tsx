@@ -1,4 +1,4 @@
-import { Sync } from "@mui/icons-material";
+import { PersonOff, Sync } from "@mui/icons-material";
 import {
   Avatar,
   Box,
@@ -15,15 +15,16 @@ const RecieverPanel = ({
 }: RecieverPanelProps) => {
   return (
     <Box>
-      <Typography 
-        variant="h5" 
+      <Typography
+        variant="h5"
         sx={{
           fontWeight: 600,
           color: 'text.primary',
           mb: 3
         }}
       >
-        Active {isRecieveMode ? "Sender" : "Receiver"}
+        {/* {isRecieveMode ? "Sender" : "Reciever"} */}
+        Active Connections
       </Typography>
 
       {reciever ? (
@@ -80,10 +81,10 @@ const RecieverPanel = ({
                   WebkitBackgroundClip: "text",
                   color: "transparent",
                   mb: 1,
-                }}
-              >
-                {reciever.username}
-              </Typography>
+              }}
+            >
+              {reciever.username}
+            </Typography>
 
               <Box
                 sx={{
@@ -110,62 +111,71 @@ const RecieverPanel = ({
                     transition: "all 0.3s ease",
                   }}
                 />
-                <Typography
+            <Typography
                   variant="body1"
-                  sx={{
+              sx={{
                     color: (theme) => 
                       status === "Connected" 
                         ? theme.palette.success.main 
                         : theme.palette.text.secondary,
                     fontWeight: 500,
                     transition: "color 0.3s ease",
-                  }}
-                >
-                  {status}
-                </Typography>
-              </Box>
+              }}
+            >
+              {status}
+            </Typography>
+          </Box>
 
-              {!isRecieveMode && (
-                <Button
-                  variant="contained"
+          {!isRecieveMode && (
+            <Button
+              variant="contained"
                   fullWidth
                   color={status === "Disconnected" ? "primary" : "secondary"}
-                  onClick={connectReciever}
-                  startIcon={<Sync />}
-                  sx={{
-                    borderRadius: 2,
-                    px: 4,
-                    py: 1.2,
-                    background: (theme) => status === "Disconnected" 
-                      ? `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
-                      : `linear-gradient(120deg, ${theme.palette.secondary.main}, ${theme.palette.error.main})`,
-                    boxShadow: (theme) => `0 4px 12px ${theme.palette.primary.main}30`,
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: (theme) => `0 6px 16px ${theme.palette.primary.main}40`,
-                    },
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  {status === "Disconnected" ? "Accept" : "Disconnect"}
-                </Button>
-              )}
+              onClick={connectReciever}
+              startIcon={<Sync />}
+              sx={{
+                borderRadius: 2,
+                px: 4,
+                py: 1.2,
+                background: (theme) => status === "Disconnected" 
+                  ? `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+                  : `linear-gradient(120deg, ${theme.palette.secondary.main}, ${theme.palette.error.main})`,
+                boxShadow: (theme) => `0 4px 12px ${theme.palette.primary.main}30`,
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: (theme) => `0 6px 16px ${theme.palette.primary.main}40`,
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {status === "Disconnected" ? "Accept" : "Disconnect"}
+            </Button>
+          )}
             </Box>
           </Box>
         </Box>
       ) : (
         <Box
           sx={{
-            p: 3,
-            textAlign: 'center',
-            color: 'text.secondary',
-            background: (theme) => `${theme.palette.background.paper}20`,
-            backdropFilter: "blur(12px)",
+            width: "100%",
+            p: { xs: 2, sm: 3 },
+            background: (theme) => `${theme.palette.background.paper}40`,
+            backdropFilter: "blur(4px)",
             borderRadius: 2,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
           }}
         >
-          <Typography variant="body1">
-            No Active {isRecieveMode ? "Sender" : "Receiver"}
+          <PersonOff sx={{ color: "text.secondary" }} />
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              fontSize: { xs: "0.875rem", sm: "1rem" },
+            }}
+          >
+            No {isRecieveMode ? "sender" : "reciever"} connected
           </Typography>
         </Box>
       )}

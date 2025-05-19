@@ -1,39 +1,39 @@
-import { Box, Button } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
 
 export const GradientBox = styled(Box)(({ theme }) => ({
   background: `linear-gradient(135deg, ${theme.palette.background.paper}, ${theme.palette.background.default})`,
   borderRadius: theme.shape.borderRadius * 3,
   padding: theme.spacing(6),
-  position: 'relative',
-  overflow: 'hidden',
-  transition: 'transform 0.3s ease-in-out',
-  '&:hover': {
-    transform: 'translateY(-5px)',
+  position: "relative",
+  overflow: "hidden",
+  transition: "transform 0.3s ease-in-out",
+  "&:hover": {
+    transform: "translateY(-5px)",
   },
-  '&::before': {
+  "&::before": {
     content: '""',
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: '2px',
+    height: "2px",
     background: `linear-gradient(90deg, transparent, ${theme.palette.primary.main}, ${theme.palette.secondary.main}, transparent)`,
   },
 }));
 
 export const FloatingIcon = styled(Box)(({ theme }) => ({
   animation: `${float} 3s ease-in-out infinite`,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   marginBottom: theme.spacing(3),
-  '& svg': {
+  "& svg": {
     fontSize: 48,
     background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-    borderRadius: '50%',
+    borderRadius: "50%",
     padding: theme.spacing(2),
-    color: 'white',
+    color: "white",
   },
 }));
 
@@ -42,19 +42,28 @@ export const GradientButton = styled(Button)(({ theme }) => ({
     ${theme.palette.primary.main}, 
     ${theme.palette.secondary.main}, 
     ${theme.palette.primary.main})`,
-  backgroundSize: '200% auto',
-  transition: 'all 0.3s ease-in-out',
-  borderRadius: '50px',
-  padding: '12px 32px',
-  fontSize: '1.1rem',
-  color: 'white',
-  textTransform: 'none',
+  backgroundSize: "200% auto",
+  transition: "all 0.3s ease-in-out",
+  borderRadius: "50px",
+  padding: "12px 32px",
+  fontSize: "1.1rem",
+  color: "white",
+  textTransform: "none",
   boxShadow: `0 4px 15px ${theme.palette.primary.main}40`,
-  '&:hover': {
+  "&:hover": {
     animation: `${shine} 2s linear infinite`,
-    transform: 'translateY(-2px)',
+    transform: "translateY(-2px)",
     boxShadow: `0 8px 25px ${theme.palette.primary.main}60`,
   },
+}));
+
+export const GradientText = styled(Typography)(({ theme }) => ({
+  fontWeight: 800,
+  mb: 2,
+  background: `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+  backgroundClip: "text",
+  WebkitBackgroundClip: "text",
+  color: "transparent",
 }));
 
 export const float = keyframes`

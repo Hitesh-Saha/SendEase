@@ -15,18 +15,17 @@ import {
   TextField,
   Tooltip,
   Typography,
-  styled,
 } from "@mui/material";
 import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import { 
   CheckCircle,
-  CloudUpload,
   ContentCopy,
   Email,
   Error,
   Facebook,
   Info,
   LinkedIn,
+  InsertLink,
   Share,
   Twitter,
   WhatsApp
@@ -37,18 +36,7 @@ import { getAvatar, getName } from "../utils/utils";
 import { RecieverData } from "../models/common";
 import { encryptFile } from "../core/FileEncryption";
 import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
-
-const VisuallyHiddenInput = styled("input")({
-  clip: "rect(0 0 0 0)",
-  clipPath: "inset(50%)",
-  height: 1,
-  overflow: "hidden",
-  position: "absolute",
-  bottom: 0,
-  left: 0,
-  whiteSpace: "nowrap",
-  width: 1,
-});
+import EmailDialog from "../components/EmailDialog/EmailDialog";
 
 const senderAvatar = getAvatar();
 const senderName = getName();
@@ -75,6 +63,7 @@ const Sender = () => {
   const encryptedAESKey = useRef<string>();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   const handleShareClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -87,30 +76,30 @@ const Sender = () => {
   const handleShare = async (platform: string) => {
     if (!peerId) return;
 
-    const shareUrl = `${window.location.origin}/receive/${peerId}`;
-    const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}`;
+    const shareUrl = `${window.location.origin}/receiver/${peerId}`;
+    const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}. You can also use this link: ${shareUrl}`;
 
     switch (platform) {
-      case 'copy':
-        await navigator.clipboard.writeText(shareText);
-        setStatus("Share link copied to clipboard");
+      case 'copy-id':
+        await navigator.clipboard.writeText(peerId);
+        setStatus("ID copied to clipboard");
+        break;
+      case 'copy-link':
+        await navigator.clipboard.writeText(shareUrl);
+        setStatus("Link copied to clipboard");
         break;
       case 'email':
-        window.location.href = `mailto:?subject=SendEase File Transfer&body=${encodeURIComponent(shareText)}`;
+        handleEmailDialogOpen();
         break;
       case 'whatsapp':
         window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
         break;
-      case 'twitter':
-        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
-        break;
-      case 'facebook':
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
-        break;
-      case 'linkedin':
-        window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl)}&title=SendEase File Transfer&summary=${encodeURIComponent(shareText)}`, '_blank');
-        break;
     }
+    handleShareClose();
+  };
+
+  const handleEmailDialogOpen = () => {
+    setIsEmailDialogOpen(true);
     handleShareClose();
   };
 
@@ -174,14 +163,6 @@ const Sender = () => {
     };
     reader.readAsArrayBuffer(selectedFile);
     setFile(selectedFile);
-  };
-
-  // Handle file input change from button
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    if (event.target.files && event.target.files[0]) {
-      handleFileUpload(event.target.files[0]);
-    }
   };
 
   // Send file to connected peer
@@ -259,11 +240,6 @@ const Sender = () => {
     }
   };
 
-  const handleCopy = (e: React.MouseEvent<HTMLElement>) => {
-    e.preventDefault();
-    if (peerId) navigator.clipboard.writeText(peerId);
-  };
-
   const deleteFileHandler = () => {
     setStatus("File Removed");
     setFile(null);
@@ -275,28 +251,29 @@ const Sender = () => {
       sx={{
         minHeight: 'calc(100vh - 64px)',
         background: (theme) => `linear-gradient(145deg, ${theme.palette.background.default}, ${theme.palette.background.paper})`,
-        py: 4,
+        py: { xs: 2, sm: 3, md: 4 },
+        px: { xs: 1, sm: 2 },
       }}
     >
       <Container maxWidth="xl">
-        <Grid container direction="row" spacing={3}>
-          <Grid item xs={12} md={8}>
+        <Grid container direction="row" spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12} lg={8}>
             <Box
               sx={{
                 background: (theme) => `linear-gradient(145deg, ${theme.palette.background.paper}80, ${theme.palette.background.default}40)`,
                 backdropFilter: 'blur(8px)',
                 borderRadius: 2,
-                p: 4,
+                p: { xs: 2, sm: 3, md: 4 },
                 boxShadow: (theme) => `0 8px 32px ${theme.palette.primary.main}10`,
               }}
             >
-              <Grid container direction="column" spacing={4}>
-                <Grid item sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 4 }}>
+                <Grid item sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Avatar 
                     src={senderAvatar} 
                     sx={{ 
-                      width: 56, 
-                      height: 56,
+                      width: { xs: 48, sm: 56 }, 
+                      height: { xs: 48, sm: 56 },
                       boxShadow: (theme) => `0 0 0 4px ${theme.palette.background.paper}`,
                       background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                     }}
@@ -305,6 +282,7 @@ const Sender = () => {
                     variant="h4" 
                     component="h1"
                     sx={{
+                      fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
                       fontWeight: 700,
                       background: (theme) => `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                       backgroundClip: 'text',
@@ -334,12 +312,12 @@ const Sender = () => {
                       readOnly: true,
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Share sx={{ color: 'primary.main' }} />
+                          <InsertLink sx={{ color: 'primary.main' }} />
                         </InputAdornment>
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
-                          <Tooltip title="Share">
+                          <Tooltip title="Share ID">
                             <Button
                               onClick={handleShareClick}
                               sx={{
@@ -383,41 +361,29 @@ const Sender = () => {
                       }
                     }}
                   >
-                    <MenuItem onClick={() => handleShare('copy')}>
+                    <MenuItem onClick={() => handleShare('copy-id')}>
                       <ListItemIcon>
                         <ContentCopy fontSize="small" />
                       </ListItemIcon>
-                      <ListItemText>Copy to clipboard</ListItemText>
+                      <ListItemText>Copy ID to clipboard</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleShare('copy-link')}>
+                      <ListItemIcon>
+                        <InsertLink fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText>Copy shareable link</ListItemText>
                     </MenuItem>
                     <MenuItem onClick={() => handleShare('email')}>
                       <ListItemIcon>
                         <Email fontSize="small" />
                       </ListItemIcon>
-                      <ListItemText>Share via email</ListItemText>
+                      <ListItemText>Send via email</ListItemText>
                     </MenuItem>
                     <MenuItem onClick={() => handleShare('whatsapp')}>
                       <ListItemIcon>
                         <WhatsApp fontSize="small" />
                       </ListItemIcon>
                       <ListItemText>Share on WhatsApp</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare('twitter')}>
-                      <ListItemIcon>
-                        <Twitter fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Share on Twitter</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare('facebook')}>
-                      <ListItemIcon>
-                        <Facebook fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Share on Facebook</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare('linkedin')}>
-                      <ListItemIcon>
-                        <LinkedIn fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Share on LinkedIn</ListItemText>
                     </MenuItem>
                   </Menu>
                 </Grid>
@@ -430,53 +396,36 @@ const Sender = () => {
                       color: 'text.primary',
                       mb: 2,
                     }}
-                  >
+                  >                    
                     Upload a file to send
                   </Typography>                  
-                  <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-                    <Button
-                      component="label"
-                      variant="contained"
-                      disabled={buttonDisabled}
-                      startIcon={<CloudUpload />}
-                      sx={{
-                        background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                        color: 'white',
-                        px: 4,
-                        py: 1.5,
-                        borderRadius: 2,
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: (theme) => `0 8px 16px ${theme.palette.primary.main}40`,
-                        },
-                      }}
-                    >
-                      Upload File
-                      <VisuallyHiddenInput type="file" onChange={handleFileChange} />
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={sendFile}
-                      disabled={fileContents === null || reciever === null || buttonDisabled}
-                      sx={{
-                        background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                        color: 'white',
-                        px: 4,
-                        py: 1.5,
-                        borderRadius: 2,
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: (theme) => `0 8px 16px ${theme.palette.primary.main}40`,
-                        },
-                      }}
-                    >
-                      Send File
-                    </Button>
-                  </Box>
 
                   <DragAndDrop onFileDrop={handleFileUpload}
                     disabled={buttonDisabled}
                   />
+
+                  {fileContents && (
+                    <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+                      <Button
+                        variant="contained"
+                        onClick={sendFile}
+                        disabled={fileContents === null || reciever === null || buttonDisabled}
+                        sx={{
+                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                          color: 'white',
+                          px: 6,
+                          py: 1.5,
+                          borderRadius: 2,
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: (theme) => `0 8px 16px ${theme.palette.primary.main}40`,
+                          },
+                        }}
+                      >
+                        Send File
+                      </Button>
+                    </Box>
+                  )}
                 </Grid>
 
                 <Grid item>
@@ -593,6 +542,7 @@ const Sender = () => {
           </Grid>
         </Grid>
       </Container>
+      <EmailDialog isDialogOpen={isEmailDialogOpen} peerId={peerId || ''} onClose={() => setIsEmailDialogOpen(false)} />
     </Box>
   );
 };

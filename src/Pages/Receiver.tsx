@@ -6,30 +6,19 @@ import {
   Box,
   Button,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   InputAdornment,
   LinearProgress,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   CheckCircle,
-  ContentCopy,
-  Email,
   Error,
   Info,
+  InsertLink,
   Link,
   Schedule,
-  Share,
   Speed,
 } from "@mui/icons-material";
 import FileItem from "../components/FileList/FileItem";
@@ -64,57 +53,6 @@ const Receiver = () => {
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    initializeReciever();
-
-    // If a sender ID is provided in the URL, set it and try to connect
-    // if (urlSenderId && !sender) {
-    //   setSender(urlSenderId);
-    //   setIsConnected(false);
-    //   setCurrentSenderStatus("Disconnected");
-    // }
-
-    return () => {
-      if (peer.current) {
-        peer.current.destroy();
-      }
-      if (connInstance.current) {
-        connInstance.current.close();
-      }
-    };
-  }, []);
-
-  // Auto-connect when sender ID is set from URL
-  // useEffect(() => {
-  //   if (
-  //     urlSenderId &&
-  //     sender === urlSenderId &&
-  //     !isConnected &&
-  //     peer.current &&
-  //     publicKey
-  //   ) {
-  //     const conn = peer.current.connect(urlSenderId);
-  //     conn?.on("open", () => {
-  //       conn.send({
-  //         peerId,
-  //         recieverAvatar,
-  //         recieverName,
-  //         key: publicKey,
-  //         type: "connect",
-  //       });
-  //       setStatus("Connection request sent to the sender");
-  //     });
-  //     conn?.on("error", (err) => {
-  //       console.log(err);
-  //       setStatus(
-  //         "Failed to connect to sender. Please check the ID and try again."
-  //       );
-  //     });
-  //     connInstance.current = conn;
-  //     setIsConnected(true);
-  //   }
-  // }, [urlSenderId, sender, isConnected, peer.current, publicKey, peerId]);
 
   const initializeReciever = useCallback(() => {
     peer.current = new Peer();
@@ -171,6 +109,47 @@ const Receiver = () => {
       });
       connInstance.current = conn;
     });
+  }, []);
+
+  useEffect(() => {
+
+    new Promise((resolve) => {
+      initializeReciever();
+      resolve(true);
+    }).then(() => {
+      // If a sender ID is provided in the URL, set it and try to connect
+      if (urlSenderId && !sender && !isConnected && peer.current && publicKey) {
+        setSender(urlSenderId);
+        const conn = peer.current.connect(urlSenderId);
+        conn?.on("open", () => {
+          conn.send({
+            peerId,
+            recieverAvatar,
+            recieverName,
+            key: publicKey,
+            type: "connect",
+          });
+          setStatus("Connection request sent to the sender");
+        });
+        conn?.on("error", (err) => {
+          console.log(err);
+          setStatus(
+            "Failed to connect to sender. Please check the ID and try again."
+          );
+        });
+        connInstance.current = conn;
+        setIsConnected(true);
+      }
+    });
+    
+    return () => {
+      if (peer.current) {
+        peer.current.destroy();
+      }
+      if (connInstance.current) {
+        connInstance.current.close();
+      }
+    };
   }, []);
 
   const updateStatus = useCallback(
@@ -265,6 +244,7 @@ const Receiver = () => {
       setIsConnected(true);
     }
   };
+
   const onSenderChangeHandler = (e: any) => {
     e.preventDefault();
     const newSenderId = e.target.value;
@@ -273,45 +253,42 @@ const Receiver = () => {
     setCurrentSenderStatus("Disconnected");
 
     // Update URL when sender ID changes
-    // if (newSenderId) {
-    //   navigate(`/receiver/${newSenderId}`, { replace: true });
-    // } else {
-    //   navigate("/receiver", { replace: true });
-    // }
+    if (newSenderId) {
+      navigate("/receiver", { replace: true });
+    }
   };
+
   return (
     <Box
       sx={{
         minHeight: "calc(100vh - 64px)",
         background: (theme) =>
           `linear-gradient(145deg, ${theme.palette.background.default}, ${theme.palette.background.paper})`,
-        py: 4,
+        py: { xs: 2, sm: 3, md: 4 },
+        px: { xs: 1, sm: 2 },
       }}
     >
       <Container maxWidth="xl">
-        <Grid container direction="row" spacing={3}>
-          <Grid item xs={12} md={8}>
+        <Grid container direction="row" spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12} lg={8}>
             <Box
               sx={{
                 background: (theme) =>
                   `linear-gradient(145deg, ${theme.palette.background.paper}80, ${theme.palette.background.default}40)`,
                 backdropFilter: "blur(8px)",
                 borderRadius: 2,
-                p: 4,
+                p: { xs: 2, sm: 3, md: 4 },
                 boxShadow: (theme) =>
                   `0 8px 32px ${theme.palette.primary.main}10`,
               }}
             >
-              <Grid container direction="column" spacing={4}>
-                <Grid
-                  item
-                  sx={{ display: "flex", gap: 2, alignItems: "center" }}
-                >
+              <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 4 }}>
+                <Grid item sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center", flexWrap: 'wrap' }}>
                   <Avatar
                     src={recieverAvatar}
                     sx={{
-                      width: 56,
-                      height: 56,
+                      width: { xs: 48, sm: 56 },
+                      height: { xs: 48, sm: 56 },
                       boxShadow: (theme) =>
                         `0 0 0 4px ${theme.palette.background.paper}`,
                       background: (theme) =>
@@ -322,6 +299,7 @@ const Receiver = () => {
                     variant="h4"
                     component="h1"
                     sx={{
+                      fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
                       fontWeight: 700,
                       background: (theme) =>
                         `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
@@ -332,7 +310,7 @@ const Receiver = () => {
                   >
                     {recieverName}
                   </Typography>
-                </Grid>{" "}
+                </Grid>
                 <Grid item>
                   <TextField
                     color="secondary"
@@ -351,7 +329,7 @@ const Receiver = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Share sx={{ color: "primary.main" }} />
+                          <InsertLink sx={{ color: 'primary.main' }} />
                         </InputAdornment>
                       ),
                     }}

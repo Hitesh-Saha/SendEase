@@ -59,67 +59,53 @@ const DragAndDrop: React.FC<DragAndDropProps> = ({ onFileDrop, disabled }) => {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         sx={{
-          border: (theme) => `2px dashed ${isDragging ? theme.palette.primary.main : theme.palette.divider}`,
+          border: "2px dashed",
+          borderColor: isDragging ? "primary.main" : "divider",
           borderRadius: 2,
-          p: 6,
-          background: (theme) => isDragging 
-            ? `${theme.palette.primary.main}08`
+          p: { xs: 2, sm: 3, md: 4 },
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: { xs: 160, sm: 200 },
+          background: (theme) => isDragging
+            ? `${theme.palette.primary.main}10`
             : `${theme.palette.background.paper}40`,
-          backdropFilter: 'blur(12px)',
-          transition: 'all 0.3s ease',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.6 : 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 2,
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '1px',
-            background: (theme) => `linear-gradient(90deg, 
-              transparent, 
-              ${theme.palette.primary.main}40, 
-              ${theme.palette.secondary.main}40, 
-              transparent
-            )`,
-          },
-          '&:hover': !disabled && {
-            borderColor: 'primary.main',
-            background: (theme) => `${theme.palette.primary.main}08`,
-            '& .MuiSvgIcon-root': {
-              color: 'primary.main',
-            },
-          },
+          backdropFilter: "blur(8px)",
+          transition: "all 0.2s",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+          gap: { xs: 1, sm: 2 },
         }}
       >
-        <CloudUpload 
-          sx={{ 
-            fontSize: 48,
-            color: (theme) => isDragging ? theme.palette.primary.main : theme.palette.text.secondary,
-            transition: 'color 0.3s ease',
-          }} 
+        <CloudUpload
+          sx={{
+            color: "primary.main",
+            fontSize: { xs: "2.5rem", sm: "3rem" },
+            mb: { xs: 1, sm: 2 },
+          }}
         />
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: (theme) => isDragging ? theme.palette.primary.main : theme.palette.text.primary,
-              fontWeight: 600,
-              mb: 1,
-            }}
-          >
-            {isDragging ? 'Drop your file here' : 'Drag & Drop your file here'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            or click anywhere in this area to upload
-          </Typography>
-        </Box>
+        <Typography
+          variant="h6"
+          component="p"
+          sx={{
+            textAlign: "center",
+            color: "text.primary",
+            fontSize: { xs: "1rem", sm: "1.25rem" },
+          }}
+        >
+          {isDragging ? 'Drop your file here' : 'Drag & Drop your file here'}
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            textAlign: "center",
+            fontSize: { xs: "0.75rem", sm: "0.875rem" },
+          }}
+        >
+          or click to select a file
+        </Typography>
       </Box>
     </>
   );

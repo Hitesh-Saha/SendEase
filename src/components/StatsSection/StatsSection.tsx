@@ -74,9 +74,9 @@ const StatsSection = () => {
 
   const targetCounts = {
     files: 1000000,
-    users: 50000,
-    data: 10000,
-    speed: 100,
+    users: 5000,
+    data: 1000,
+    speed: 20,
     transfers: 1000000,
     uptime: 99.99,
   };
@@ -112,7 +112,7 @@ const StatsSection = () => {
   const stats = [
     {
       icon: <CloudUpload sx={{ fontSize: 40, color: 'white' }} />,
-      number: `${(counts.data / 1000).toFixed(1)}TB+`,
+      number: `${(counts.data / 100).toFixed(1)}GB+`,
       label: 'Data Transferred',
       description: 'Total volume of secure transfers'
     },
@@ -136,7 +136,7 @@ const StatsSection = () => {
     },
     {
       icon: <Share sx={{ fontSize: 40, color: 'white' }} />,
-      number: `${(counts.transfers / 1000000).toFixed(1)}M+`,
+      number: `${(counts.transfers / 1000000).toFixed(1)}K+`,
       label: 'File Transfers',
       description: 'Successful transfers'
     },
