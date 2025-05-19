@@ -16,20 +16,30 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
-import { 
+import {
   CheckCircle,
   ContentCopy,
   Email,
   Error,
-  Facebook,
   Info,
-  LinkedIn,
   InsertLink,
   Share,
-  Twitter,
-  WhatsApp
+  WhatsApp,
 } from "@mui/icons-material";
+import {
+  pageContainer,
+  glassMenu,
+  glassBackground,
+  glassBackgroundLight,
+  gradientButton,
+  gradientText,
+  textField,
+  gradientAvatar,
+  statusMessage,
+  progressBar,
+  iconButton
+} from "../styles/index.styles";
+import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
 import { getAvatar, getName } from "../utils/utils";
@@ -48,9 +58,7 @@ const Sender = () => {
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [isProgressBar, setIsProgressBar] = useState<boolean>(false);
-  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(
-    null
-  );
+  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(null);
   const [currentRecieverStatus, setCurrentRecieverStatus] =
     useState<string>("Disconnected");
   const [recieverDetails, setRecieverDetails] = useState<RecieverData | null>(
@@ -80,19 +88,22 @@ const Sender = () => {
     const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}. You can also use this link: ${shareUrl}`;
 
     switch (platform) {
-      case 'copy-id':
+      case "copy-id":
         await navigator.clipboard.writeText(peerId);
         setStatus("ID copied to clipboard");
         break;
-      case 'copy-link':
+      case "copy-link":
         await navigator.clipboard.writeText(shareUrl);
         setStatus("Link copied to clipboard");
         break;
-      case 'email':
+      case "email":
         handleEmailDialogOpen();
         break;
-      case 'whatsapp':
-        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+      case "whatsapp":
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+          "_blank"
+        );
         break;
     }
     handleShareClose();
@@ -103,7 +114,7 @@ const Sender = () => {
     handleShareClose();
   };
 
-  const initializeSender =  useCallback(() => {
+  const initializeSender = useCallback(() => {
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id);
@@ -113,7 +124,7 @@ const Sender = () => {
 
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        if (data.type == 'connect') {
+        if (data.type == "connect") {
           const { peerId, recieverAvatar, recieverName, key } = data;
           setReciever(peerId);
           encryptedAESKey.current = encryptAESKey(key, aesKey.current!);
@@ -183,12 +194,12 @@ const Sender = () => {
     sendFileInChunks();
     connInstance.current?.send({ type: "end" });
   };
-  
+
   connInstance.current?.on("data", (data: any) => {
     if (data.type === "finished") {
       setStatus("File Sent Successfully");
-      setButtonDisabled(false)
-      setFileContents(null)
+      setButtonDisabled(false);
+      setFileContents(null);
     }
   });
 
@@ -202,7 +213,9 @@ const Sender = () => {
 
       if (offset >= fileContents.byteLength) return;
 
-      const chunk = new Uint8Array(fileContents.slice(offset, offset + chunkSize));
+      const chunk = new Uint8Array(
+        fileContents.slice(offset, offset + chunkSize)
+      );
       const encryptedChunk = encryptFile(chunk, aesKey.current!);
       connInstance.current?.send({
         contents: encryptedChunk,
@@ -212,7 +225,7 @@ const Sender = () => {
       offset += chunkSize;
       sequence += 1;
       sendNextChunk();
-    }
+    };
     sendNextChunk();
   };
 
@@ -232,8 +245,7 @@ const Sender = () => {
         setStatus("Connection Established");
         connInstance.current = conn;
       });
-    }
-    else {
+    } else {
       connInstance.current?.close();
       setCurrentRecieverStatus("Disconnected");
       setStatus("Connection Closed");
@@ -247,49 +259,27 @@ const Sender = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: 'calc(100vh - 64px)',
-        background: (theme) => `linear-gradient(145deg, ${theme.palette.background.default}, ${theme.palette.background.paper})`,
-        py: { xs: 2, sm: 3, md: 4 },
-        px: { xs: 1, sm: 2 },
-      }}
-    >
+    <Box sx={pageContainer}>
       <Container maxWidth="xl">
         <Grid container direction="row" spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12} lg={8}>
-            <Box
-              sx={{
-                background: (theme) => `linear-gradient(145deg, ${theme.palette.background.paper}80, ${theme.palette.background.default}40)`,
-                backdropFilter: 'blur(8px)',
-                borderRadius: 2,
-                p: { xs: 2, sm: 3, md: 4 },
-                boxShadow: (theme) => `0 8px 32px ${theme.palette.primary.main}10`,
-              }}
-            >
-              <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 4 }}>
-                <Grid item sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Avatar 
-                    src={senderAvatar} 
-                    sx={{ 
-                      width: { xs: 48, sm: 56 }, 
-                      height: { xs: 48, sm: 56 },
-                      boxShadow: (theme) => `0 0 0 4px ${theme.palette.background.paper}`,
-                      background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    }}
-                  />
-                  <Typography 
-                    variant="h4" 
-                    component="h1"
-                    sx={{
-                      fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
-                      fontWeight: 700,
-                      background: (theme) => `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      color: 'transparent',
-                    }}
-                  >
+            <Box sx={glassBackground}>
+              <Grid
+                container
+                direction="column"
+                spacing={{ xs: 2, sm: 3, md: 4 }}
+              >
+                <Grid
+                  item
+                  sx={{
+                    display: "flex",
+                    gap: { xs: 1, sm: 2 },
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Avatar src={senderAvatar} sx={gradientAvatar} />
+                  <Typography variant="h4" component="h1" sx={gradientText}>
                     {senderName}
                   </Typography>
                 </Grid>
@@ -301,36 +291,18 @@ const Sender = () => {
                     label="Your Sender ID"
                     fullWidth
                     focused
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        background: (theme) => `${theme.palette.background.paper}80`,
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: 2,
-                      },
-                    }}
+                    sx={textField}
                     InputProps={{
                       readOnly: true,
                       startAdornment: (
                         <InputAdornment position="start">
-                          <InsertLink sx={{ color: 'primary.main' }} />
+                          <InsertLink sx={{ color: "primary.main" }} />
                         </InputAdornment>
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
                           <Tooltip title="Share ID">
-                            <Button
-                              onClick={handleShareClick}
-                              sx={{
-                                minWidth: 'auto',
-                                p: 1,
-                                borderRadius: 1,
-                                transition: 'all 0.2s',
-                                '&:hover': {
-                                  background: (theme) => `${theme.palette.primary.main}20`,
-                                  transform: 'scale(1.05)',
-                                }
-                              }}
-                            >
+                            <Button onClick={handleShareClick} sx={iconButton}>
                               <Share color="primary" />
                             </Button>
                           </Tooltip>
@@ -338,48 +310,40 @@ const Sender = () => {
                       ),
                     }}
                     helperText="Share this ID with the receiver to establish connection"
-                  />
+                  />{" "}
                   <Menu
                     anchorEl={anchorEl}
                     open={open}
                     onClose={handleShareClose}
                     anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'right',
+                      vertical: "bottom",
+                      horizontal: "right",
                     }}
                     transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'right',
+                      vertical: "top",
+                      horizontal: "right",
                     }}
-                    sx={{
-                      '& .MuiPaper-root': {
-                        background: (theme) => `${theme.palette.background.paper}CC`,
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                      }
-                    }}
+                    sx={glassMenu}
                   >
-                    <MenuItem onClick={() => handleShare('copy-id')}>
+                    <MenuItem onClick={() => handleShare("copy-id")}>
                       <ListItemIcon>
                         <ContentCopy fontSize="small" />
                       </ListItemIcon>
                       <ListItemText>Copy ID to clipboard</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => handleShare('copy-link')}>
+                    <MenuItem onClick={() => handleShare("copy-link")}>
                       <ListItemIcon>
                         <InsertLink fontSize="small" />
                       </ListItemIcon>
                       <ListItemText>Copy shareable link</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => handleShare('email')}>
+                    <MenuItem onClick={() => handleShare("email")}>
                       <ListItemIcon>
                         <Email fontSize="small" />
                       </ListItemIcon>
                       <ListItemText>Send via email</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => handleShare('whatsapp')}>
+                    <MenuItem onClick={() => handleShare("whatsapp")}>
                       <ListItemIcon>
                         <WhatsApp fontSize="small" />
                       </ListItemIcon>
@@ -389,38 +353,35 @@ const Sender = () => {
                 </Grid>
 
                 <Grid item>
-                  <Typography 
+                  <Typography
                     variant="h5"
                     sx={{
                       fontWeight: 600,
-                      color: 'text.primary',
+                      color: "text.primary",
                       mb: 2,
                     }}
-                  >                    
+                  >
                     Upload a file to send
-                  </Typography>                  
+                  </Typography>
 
-                  <DragAndDrop onFileDrop={handleFileUpload}
+                  <DragAndDrop
+                    onFileDrop={handleFileUpload}
                     disabled={buttonDisabled}
                   />
 
                   {fileContents && (
-                    <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+                    <Box
+                      sx={{ display: "flex", justifyContent: "center", mt: 3 }}
+                    >
                       <Button
                         variant="contained"
                         onClick={sendFile}
-                        disabled={fileContents === null || reciever === null || buttonDisabled}
-                        sx={{
-                          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                          color: 'white',
-                          px: 6,
-                          py: 1.5,
-                          borderRadius: 2,
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: (theme) => `0 8px 16px ${theme.palette.primary.main}40`,
-                          },
-                        }}
+                        disabled={
+                          fileContents === null ||
+                          reciever === null ||
+                          buttonDisabled
+                        }
+                        sx={gradientButton}
                       >
                         Send File
                       </Button>
@@ -429,65 +390,33 @@ const Sender = () => {
                 </Grid>
 
                 <Grid item>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      background: (theme) => status.includes("Successfully") ? 
-                        `${theme.palette.success.main}10` : 
-                        status.includes("error") ?
-                        `${theme.palette.error.main}10` :
-                        `${theme.palette.info.main}10`,
-                      border: (theme) => `1px solid ${status.includes("Successfully") ? 
-                        theme.palette.success.main : 
-                        status.includes("error") ?
-                        theme.palette.error.main :
-                        theme.palette.info.main}20`,
-                      color: 'text.secondary',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: isProgressBar ? 2 : 0,
-                    }}
-                  >
-                    {status.includes("Successfully") ? <CheckCircle color="success" /> :
-                     status.includes("error") ? <Error color="error" /> :
-                     <Info color="info" />}
+                  {status && <Typography variant="body1" sx={statusMessage({ status })}>
+                    {status.includes("Successfully") ? (
+                      <CheckCircle color="success" />
+                    ) : status.includes("error") ? (
+                      <Error color="error" />
+                    ) : (
+                      <Info color="info" />
+                    )}
                     {status}
-                  </Typography>
+                  </Typography>}
 
                   {isProgressBar && (
-                    <Box
-                      sx={{
-                        background: (theme) => `${theme.palette.background.paper}60`,
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: 2,
-                        p: 3,
-                      }}
-                    >
-                      <Box sx={{ width: '100%', position: 'relative' }}>
+                    <Box sx={glassBackgroundLight}>
+                      <Box sx={{ width: "100%", position: "relative" }}>
                         <LinearProgress
                           variant="determinate"
                           value={progress}
-                          sx={{
-                            height: 12,
-                            borderRadius: 6,
-                            backgroundColor: (theme) => `${theme.palette.primary.main}20`,
-                            '& .MuiLinearProgress-bar': {
-                              background: (theme) => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                              borderRadius: 6,
-                            }
-                          }}
+                          sx={progressBar}
                         />
                         <Typography
                           variant="body2"
                           sx={{
-                            position: 'absolute',
+                            position: "absolute",
                             right: 0,
                             top: -20,
                             fontWeight: 600,
-                            color: 'primary.main',
+                            color: "primary.main",
                           }}
                         >
                           {progress.toFixed(1)}%
@@ -499,14 +428,7 @@ const Sender = () => {
 
                 {file && (
                   <Grid item>
-                    <Box
-                      sx={{
-                        background: (theme) => `${theme.palette.background.paper}60`,
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: 2,
-                        p: 2,
-                      }}
-                    >
+                    <Box sx={glassBackgroundLight}>
                       <FileItem
                         fileName={file?.name || ""}
                         fileSize={file?.size || 0}
@@ -522,16 +444,7 @@ const Sender = () => {
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Box
-              sx={{
-                background: (theme) => `linear-gradient(145deg, ${theme.palette.background.paper}60, ${theme.palette.background.default}40)`,
-                backdropFilter: 'blur(8px)',
-                borderRadius: 2,
-                p: 3,
-                height: '100%',
-                boxShadow: (theme) => `0 8px 32px ${theme.palette.primary.main}10`,
-              }}
-            >
+            <Box sx={glassBackgroundLight}>
               <RecieverPanel
                 reciever={recieverDetails}
                 status={currentRecieverStatus}
@@ -542,7 +455,11 @@ const Sender = () => {
           </Grid>
         </Grid>
       </Container>
-      <EmailDialog isDialogOpen={isEmailDialogOpen} peerId={peerId || ''} onClose={() => setIsEmailDialogOpen(false)} />
+      <EmailDialog
+        isDialogOpen={isEmailDialogOpen}
+        peerId={peerId || ""}
+        onClose={() => setIsEmailDialogOpen(false)}
+      />
     </Box>
   );
 };

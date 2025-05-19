@@ -1,6 +1,13 @@
 import { Box, Button, Typography } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
 
+export const SectionContainer = styled(Box)(({ theme }) => ({
+  py: 15,
+  background: `linear-gradient(180deg, 
+    ${theme.palette.background.default} 0%, 
+    ${theme.palette.background.paper} 50%,
+    ${theme.palette.background.default} 100%)`,
+}));
 export const GradientBox = styled(Box)(({ theme }) => ({
   background: `linear-gradient(135deg, ${theme.palette.background.paper}, ${theme.palette.background.default})`,
   borderRadius: theme.shape.borderRadius * 3,

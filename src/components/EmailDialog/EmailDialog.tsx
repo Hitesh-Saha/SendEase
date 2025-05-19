@@ -7,6 +7,7 @@ import {
   TextField,
 } from "@mui/material";
 import { useState } from "react";
+import { glassDialog, textField, gradientButton } from "../../styles/index.styles";
 
 interface EmailDialogProps {
   isDialogOpen: boolean;
@@ -15,43 +16,34 @@ interface EmailDialogProps {
 }
 
 const EmailDialog = ({ isDialogOpen, peerId, onClose }: EmailDialogProps) => {
-    const [receiverEmail, setReceiverEmail] = useState<string>("");
-    const [emailError, setEmailError] = useState<string>("");
+  const [receiverEmail, setReceiverEmail] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
 
-    const validateEmail = (email: string) => {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    };
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
-    const handleSend = () => {
-        if (!validateEmail(receiverEmail)) {
-            setEmailError("Please enter a valid email address");
-            return;
-        }
-        const shareUrl = `${window.location.origin}/receiver/${peerId}`;
-        const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}. You can also use this link: ${shareUrl}`;
-        window.location.href = `mailto:${receiverEmail}?subject=SendEase File Transfer&body=${encodeURIComponent(shareText)}`;
-        onClose();
+  const handleSend = () => {
+    if (!validateEmail(receiverEmail)) {
+      setEmailError("Please enter a valid email address");
+      return;
     }
+    const shareUrl = `${window.location.origin}/receiver/${peerId}`;
+    const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}. You can also use this link: ${shareUrl}`;
+    window.location.href = `mailto:${receiverEmail}?subject=SendEase File Transfer&body=${encodeURIComponent(shareText)}`;
+    onClose();
+  };
 
-    const handleClose = () => {
-        setEmailError("");
-        setReceiverEmail("");
-        onClose();
-    }
+  const handleClose = () => {
+    setEmailError("");
+    setReceiverEmail("");
+    onClose();
+  };
 
-  return (
-    <Dialog
+  return (    <Dialog
       open={isDialogOpen}
       onClose={handleClose}
-      PaperProps={{
-        sx: {
-          background: (theme) => `${theme.palette.background.paper}CC`,
-          backdropFilter: "blur(8px)",
-          borderRadius: 2,
-          border: "1px solid",
-          borderColor: "divider",
-        },
-      }}
+      sx={glassDialog}
     >
       <DialogTitle>Send via Email</DialogTitle>
       <DialogContent>
@@ -66,14 +58,7 @@ const EmailDialog = ({ isDialogOpen, peerId, onClose }: EmailDialogProps) => {
           error={!!emailError}
           helperText={emailError}
           variant="outlined"
-          sx={{
-            mt: 2,
-            "& .MuiOutlinedInput-root": {
-              background: (theme) => `${theme.palette.background.paper}80`,
-              backdropFilter: "blur(8px)",
-              borderRadius: 2,
-            },
-          }}
+          sx={textField}
         />
       </DialogContent>
       <DialogActions sx={{ p: 2, pt: 0 }}>
@@ -81,16 +66,7 @@ const EmailDialog = ({ isDialogOpen, peerId, onClose }: EmailDialogProps) => {
         <Button
           onClick={handleSend}
           variant="contained"
-          sx={{
-            background: (theme) =>
-              `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            color: "white",
-            "&:hover": {
-              transform: "translateY(-2px)",
-              boxShadow: (theme) =>
-                `0 8px 16px ${theme.palette.primary.main}40`,
-            },
-          }}
+          sx={gradientButton}
         >
           Send
         </Button>
