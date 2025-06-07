@@ -1,27 +1,24 @@
 import { Outlet } from "react-router-dom";
-import { Grid } from "@mui/material";
-import BreadCrumb from "../components/BreadCrumb/BreadCrumb";
-import Footer from "../components/Footer/Footer";
+import { Box } from "@mui/material";
 import Navbar from "../components/Navbar/Navbar";
+import Footer from "../components/Footer/Footer";
 
 const Landing = () => {
   return (
-    <>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: '100vh'
+    }}>
       <Navbar />
-      <Grid
-        container
-        spacing={1}
-        direction='column'
-        padding='1rem'
-        justifyContent={"flex-start"}
-        min-width='100vw'
-        minHeight='83vh'
-      >
-        <BreadCrumb />
+      <Box sx={{ 
+        flex: 1,
+        width: '100%',
+      }}>
         <Outlet />
-      </Grid>
+      </Box>
       <Footer />
-    </>
+    </Box>
   );
 };
 

@@ -1,36 +1,52 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Peer, { DataConnection } from "peerjs";
 import {
-  Button,
-  Grid,
-  Typography,
-  styled,
-  LinearProgress,
+  Avatar,
   Box,
+  Button,
+  Container,
+  Grid,
+  InputAdornment,
+  LinearProgress,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
   TextField,
   Tooltip,
-  Divider,
-  Avatar,
+  Typography,
 } from "@mui/material";
-import { CloudUpload, FileCopy } from "@mui/icons-material";
+import {
+  CheckCircle,
+  ContentCopy,
+  Email,
+  Error,
+  Info,
+  InsertLink,
+  Share,
+  WhatsApp,
+} from "@mui/icons-material";
+import {
+  pageContainer,
+  glassMenu,
+  glassBackground,
+  glassBackgroundLight,
+  gradientButton,
+  gradientText,
+  textField,
+  gradientAvatar,
+  statusMessage,
+  progressBar,
+  iconButton
+} from "../styles/index.styles";
+import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
-import { getAvatar, getName } from "../utils/utils";
+import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../lib/utils";
 import { RecieverData } from "../models/common";
 import { encryptFile } from "../core/FileEncryption";
 import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
-
-const VisuallyHiddenInput = styled("input")({
-  clip: "rect(0 0 0 0)",
-  clipPath: "inset(50%)",
-  height: 1,
-  overflow: "hidden",
-  position: "absolute",
-  bottom: 0,
-  left: 0,
-  whiteSpace: "nowrap",
-  width: 1,
-});
+import EmailDialog from "../components/EmailDialog/EmailDialog";
 
 const senderAvatar = getAvatar();
 const senderName = getName();
@@ -42,9 +58,7 @@ const Sender = () => {
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [isProgressBar, setIsProgressBar] = useState<boolean>(false);
-  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(
-    null
-  );
+  const [fileContents, setFileContents] = useState<ArrayBuffer | null>(null);
   const [currentRecieverStatus, setCurrentRecieverStatus] =
     useState<string>("Disconnected");
   const [recieverDetails, setRecieverDetails] = useState<RecieverData | null>(
@@ -55,18 +69,84 @@ const Sender = () => {
   const peer = useRef<Peer | null>(null);
   const aesKey = useRef<string>();
   const encryptedAESKey = useRef<string>();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [transferStats, setTransferStats] = useState({
+    speed: 0, // bytes per second
+    eta: 0, // seconds remaining
+    startTime: 0, // timestamp when transfer started
+    bytesTransferred: 0, // total bytes transferred so far
+  });
 
-  const initializeSender =  useCallback(() => {
+
+  const handleShareClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleShareClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleShare = async (platform: string) => {
+    if (!peerId) return;
+
+    const shareUrl = `${window.location.origin}/receiver/${peerId}`;
+    const shareText = `Join me on SendEase to receive a secure file transfer. My Sender ID is: ${peerId}. You can also use this link: ${shareUrl}`;
+
+    switch (platform) {
+      case "copy-id":
+        await navigator.clipboard.writeText(peerId);
+        setStatus("ID copied to clipboard");
+        break;
+      case "copy-link":
+        await navigator.clipboard.writeText(shareUrl);
+        setStatus("Link copied to clipboard");
+        break;
+      case "email":
+        handleEmailDialogOpen();
+        break;
+      case "whatsapp":
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+          "_blank"
+        );
+        break;
+    }
+    handleShareClose();
+  };
+
+  const handleEmailDialogOpen = () => {
+    setIsEmailDialogOpen(true);
+    handleShareClose();
+  };
+
+  const initializeSender = useCallback(() => {
+    // Connect to our custom PeerJS server
+    // const peerOptions = {
+    //   host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+    //   port: window.location.hostname === 'localhost' ? 9000 : 443,
+    //   path: '/peerjs',
+    //   secure: window.location.protocol === 'https:',
+    //   debug: 2,
+    // };
+    
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id);
+      console.log("Connected to signaling server with ID:", id);
+    });
+    
+    peer.current.on("error", (err) => {
+      console.error("PeerJS error:", err);
+      setStatus(`Connection error: ${err.type}`);
     });
 
     aesKey.current = generateAESKey();
 
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
-        if (data.type == 'connect') {
+        if (data.type == "connect") {
           const { peerId, recieverAvatar, recieverName, key } = data;
           setReciever(peerId);
           encryptedAESKey.current = encryptAESKey(key, aesKey.current!);
@@ -85,36 +165,37 @@ const Sender = () => {
   useEffect(() => {
     initializeSender();
     return () => {
-      peer.current?.destroy();
+      if (peer.current) {
+        peer.current.destroy();
+      }
+      if (connInstance.current) {
+        connInstance.current.close();
+      }
     };
-  }, [initializeSender]);
+  }, []);
 
-  // Handle file input change
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    if (event.target.files && event.target.files[0]) {
-      const selectedFile = event.target.files[0];
-      setIsProgressBar(true);
-      setStatus("Uploading...");
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (reader.result) {
-          setFileContents(reader.result as ArrayBuffer);
-          if (ev.loaded === ev.total) {
-            setStatus("File Uploaded");
-            setTimeout(() => {
-              setIsProgressBar(false);
-              setProgress(0);
-            }, 2000);
-          }
+  // Handle file input from both drag-drop and button upload
+  const handleFileUpload = (selectedFile: File) => {
+    setIsProgressBar(true);
+    setStatus("Uploading...");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (reader.result) {
+        setFileContents(reader.result as ArrayBuffer);
+        if (ev.loaded === ev.total) {
+          setStatus("File Uploaded");
+          setTimeout(() => {
+            setIsProgressBar(false);
+            setProgress(0);
+          }, 2000);
         }
-      };
-      reader.onprogress = (ev) => {
-        setProgress(Math.round((ev.loaded / ev.total) * 100));
-      };
-      reader.readAsArrayBuffer(selectedFile);
-      setFile(selectedFile);
-    }
+      }
+    };
+    reader.onprogress = (ev) => {
+      setProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    reader.readAsArrayBuffer(selectedFile);
+    setFile(selectedFile);
   };
 
   // Send file to connected peer
@@ -122,8 +203,18 @@ const Sender = () => {
     e.preventDefault();
     if (!fileContents || !connInstance.current) return;
 
-    setButtonDisabled(true)
-    setStatus("Sending File...");
+    setButtonDisabled(true);
+    setStatus("Preparing to send file...");
+    setIsProgressBar(true);
+    setProgress(0);
+    
+    // Initialize transfer statistics
+    setTransferStats({
+      speed: 0,
+      eta: 0,
+      startTime: Date.now(),
+      bytesTransferred: 0,
+    });
 
     connInstance.current?.send({
       fileName: file?.name,
@@ -132,15 +223,20 @@ const Sender = () => {
       type: "file-meta",
     });
     connInstance.current?.send({ type: "start" });
-    sendFileInChunks()
+    sendFileInChunks();
     connInstance.current?.send({ type: "end" });
   };
-  
+
   connInstance.current?.on("data", (data: any) => {
-    if (data.type === "finished") {
-      setStatus("File Sent Successfully");
-      setButtonDisabled(false)
-      setFileContents(null)
+    if (data.type === "completed") {
+      const totalTime = (Date.now() - transferStats.startTime) / 1000; // in seconds
+      const averageSpeed = file ? file.size / totalTime : 0; // bytes per second
+      
+      setStatus(`File Sent Successfully (${formatSpeed(averageSpeed)} avg)`);
+      setButtonDisabled(false);
+      setFileContents(null);
+      setProgress(0);
+      setIsProgressBar(false);
     }
   });
 
@@ -148,13 +244,18 @@ const Sender = () => {
     const chunkSize = 16 * 1024; // 16 KB per chunk
     let offset = 0;
     let sequence = 0;
+    const totalSize = fileContents?.byteLength || 0;
+    let lastUpdateTime = Date.now();
+    let lastOffset = 0;
 
     const sendNextChunk = () => {
       if (!fileContents || !connInstance.current?.open) return;
 
       if (offset >= fileContents.byteLength) return;
 
-      const chunk = new Uint8Array(fileContents.slice(offset, offset + chunkSize));
+      const chunk = new Uint8Array(
+        fileContents.slice(offset, offset + chunkSize)
+      );
       const encryptedChunk = encryptFile(chunk, aesKey.current!);
       connInstance.current?.send({
         contents: encryptedChunk,
@@ -163,8 +264,39 @@ const Sender = () => {
       });
       offset += chunkSize;
       sequence += 1;
+      
+      // Update progress and transfer statistics
+      const now = Date.now();
+      
+      // Update transfer stats every ~500ms to avoid excessive re-renders
+      if (now - lastUpdateTime > 500) {
+        const timeElapsed = (now - lastUpdateTime) / 1000; // in seconds
+        const bytesInInterval = offset - lastOffset;
+        const currentSpeed = bytesInInterval / timeElapsed; // bytes per second
+        const bytesRemaining = totalSize - offset;
+        const eta = currentSpeed > 0 ? bytesRemaining / currentSpeed : 0;
+        
+        setTransferStats(prev => ({
+          ...prev,
+          speed: currentSpeed,
+          eta: eta,
+          bytesTransferred: offset
+        }));
+        
+        lastUpdateTime = now;
+        lastOffset = offset;
+      }
+      
+      const currentProgress = Math.min(Math.round((offset / totalSize) * 100), 99);
+      setProgress(currentProgress);
+      
+      // Update status message with progress percentage only
+      // (speed and ETA are shown in the progress bar component)
+      setStatus(`Sending File...`);
+      
+      // Use setTimeout to prevent UI freezing with large files
       sendNextChunk();
-    }
+    };
     sendNextChunk();
   };
 
@@ -184,17 +316,11 @@ const Sender = () => {
         setStatus("Connection Established");
         connInstance.current = conn;
       });
-    }
-    else {
+    } else {
       connInstance.current?.close();
       setCurrentRecieverStatus("Disconnected");
       setStatus("Connection Closed");
     }
-  };
-
-  const handleCopy = (e: React.MouseEvent<HTMLElement>) => {
-    e.preventDefault();
-    if (peerId) navigator.clipboard.writeText(peerId);
   };
 
   const deleteFileHandler = () => {
@@ -204,141 +330,227 @@ const Sender = () => {
   };
 
   return (
-    <>
-      <Grid
-        container
-        direction="row"
-        spacing={2}
-        justifyContent={"space-between"}
-        padding={"1rem"}
-      >
-        <Grid item xs={12} md={8} paddingRight={"1rem"}>
-          <Grid container direction="column" spacing={3}>
-            <Grid
-              item
-              sx={{ display: "flex", gap: "1rem", alignItems: "center" }}
-            >
-              <Avatar src={senderAvatar} sizes="large" />
-              <Typography variant="h5" component="h2">
-                {senderName}
-              </Typography>
-            </Grid>
-            <Grid item width="100%">
-              <Grid container spacing={2}>
-                <Grid item xs={true}>
+    <Box sx={pageContainer}>
+      <Container maxWidth="xl">
+        <Grid container direction="row" spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12} lg={8}>
+            <Box sx={glassBackground}>
+              <Grid
+                container
+                direction="column"
+                spacing={{ xs: 2, sm: 3, md: 4 }}
+              >
+                <Grid
+                  item
+                  sx={{
+                    display: "flex",
+                    gap: { xs: 1, sm: 2 },
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Avatar src={senderAvatar} sx={gradientAvatar} />
+                  <Typography variant="h4" component="h1" sx={gradientText}>
+                    {senderName}
+                  </Typography>
+                </Grid>
+
+                <Grid item>
                   <TextField
                     color="secondary"
                     value={peerId || ""}
-                    label="Sender ID"
+                    label="Your Sender ID"
                     fullWidth
                     focused
+                    sx={textField}
                     InputProps={{
                       readOnly: true,
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <InsertLink sx={{ color: "primary.main" }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title="Share ID">
+                            <Button onClick={handleShareClick} sx={iconButton}>
+                              <Share color="primary" />
+                            </Button>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
                     }}
-                    helperText="The receiver needs to connect to this id"
-                  />
+                    helperText="Share this ID with the receiver to establish connection"
+                  />{" "}
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={open}
+                    onClose={handleShareClose}
+                    anchorOrigin={{
+                      vertical: "bottom",
+                      horizontal: "right",
+                    }}
+                    transformOrigin={{
+                      vertical: "top",
+                      horizontal: "right",
+                    }}
+                    sx={glassMenu}
+                  >
+                    <MenuItem onClick={() => handleShare("copy-id")}>
+                      <ListItemIcon>
+                        <ContentCopy fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText>Copy ID to clipboard</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleShare("copy-link")}>
+                      <ListItemIcon>
+                        <InsertLink fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText>Copy shareable link</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleShare("email")}>
+                      <ListItemIcon>
+                        <Email fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText>Send via email</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleShare("whatsapp")}>
+                      <ListItemIcon>
+                        <WhatsApp fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText>Share on WhatsApp</ListItemText>
+                    </MenuItem>
+                  </Menu>
                 </Grid>
-                <Grid item xs={1}>
-                  <Tooltip title="Copy to clipboard">
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      onClick={handleCopy}
-                      sx={{
-                        display: "flex",
-                        paddingTop: "0.7rem",
-                        paddingBottom: "0.7rem",
-                      }}
-                    >
-                      <FileCopy fontSize="large" />
-                    </Button>
-                  </Tooltip>
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item>
-              <Typography variant="h4" color="text.secondary">
-                Upload a file to send
-              </Typography>
-            </Grid>
-            <Grid item width="100%">
-              <Grid container spacing={3}>
-                <Grid item xs={12} sx={{ display: "flex", gap: "1.2rem" }}>
-                  <Button
-                    component="label"
-                    role={undefined}
-                    variant="contained"
-                    tabIndex={-1}
-                    startIcon={<CloudUpload />}
-                    size="large"
+
+                <Grid item>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 600,
+                      color: "text.primary",
+                      mb: 2,
+                    }}
+                  >
+                    Upload a file to send
+                  </Typography>
+
+                  <DragAndDrop
+                    onFileDrop={handleFileUpload}
                     disabled={buttonDisabled}
-                  >
-                    Upload file
-                    <VisuallyHiddenInput
-                      type="file"
-                      onChange={handleFileChange}
-                    />
-                  </Button>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={sendFile}
-                    disabled={fileContents === null || reciever === null || buttonDisabled}
-                  >
-                    Send File
-                  </Button>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="h6" >{`${status}`}</Typography>
-                  {isProgressBar && (
+                  />
+
+                  {fileContents && (
                     <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }}
+                      sx={{ display: "flex", justifyContent: "center", mt: 3 }}
                     >
-                      <Box sx={{ width: "100%", mr: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={progress}
-                          color="primary"
-                        />
-                      </Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                      >{`${Math.round(progress)}%`}</Typography>
+                      <Button
+                        variant="contained"
+                        onClick={sendFile}
+                        disabled={
+                          fileContents === null ||
+                          reciever === null ||
+                          buttonDisabled
+                        }
+                        sx={gradientButton}
+                      >
+                        Send File
+                      </Button>
                     </Box>
                   )}
                 </Grid>
+
+                {status && (
+                  <Grid item>
+                    <Typography variant="body1" sx={statusMessage({ status })}>
+                      {status.includes("Successfully") ? (
+                        <CheckCircle color="success" />
+                      ) : status.includes("error") ? (
+                        <Error color="error" />
+                      ) : (
+                        <Info color="info" />
+                      )}
+                      {status}
+                    </Typography>
+                  </Grid>
+                )}
+
+                {isProgressBar && (
+                  <Grid item>
+                    <Box sx={glassBackgroundLight}>
+                      <Box sx={{ width: "100%", position: "relative", mb: 2 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={progress}
+                          sx={progressBar}
+                        />
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            position: "absolute",
+                            right: 0,
+                            top: -20,
+                            fontWeight: 600,
+                            color: "primary.main",
+                          }}
+                        >
+                          {progress.toFixed(1)}%
+                        </Typography>
+                      </Box>
+                      
+                      {/* Transfer statistics */}
+                      {transferStats.speed > 0 && (
+                        <Box sx={{ display: "flex", justifyContent: "space-between", px: 1, flexWrap: "wrap", gap: 1 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Speed: {formatSpeed(transferStats.speed)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Estimated Time: {formatTime(transferStats.eta)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Sent: {getFileSize(transferStats.bytesTransferred)} / {file ? getFileSize(file.size) : '0 B'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Grid>
+                )}
+
+                {file && (
+                  <Grid item>
+                    <Box sx={glassBackgroundLight}>
+                      <FileItem
+                        fileName={file?.name || ""}
+                        fileSize={file?.size || 0}
+                        fileType={file?.type}
+                        isRecieveMode={false}
+                        deleteFile={deleteFileHandler}
+                      />
+                    </Box>
+                  </Grid>
+                )}
               </Grid>
-            </Grid>
-            <Grid
-              item
-              sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-            >
-              {file && (
-                <FileItem
-                  fileName={file?.name || ""}
-                  fileSize={file?.size || 0}
-                  fileType={file?.type}
-                  isRecieveMode={false}
-                  deleteFile={deleteFileHandler}
-                />
-              )}
-            </Grid>
+            </Box>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Box sx={glassBackgroundLight}>
+              <RecieverPanel
+                reciever={recieverDetails}
+                status={currentRecieverStatus}
+                isRecieveMode={false}
+                connectReciever={connectReciever}
+              />
+            </Box>
           </Grid>
         </Grid>
-        <Divider variant="fullWidth" orientation="vertical" flexItem />
-        <RecieverPanel
-          reciever={recieverDetails}
-          status={currentRecieverStatus}
-          isRecieveMode={false}
-          connectReciever={connectReciever}
-        />
-      </Grid>
-    </>
+      </Container>
+      <EmailDialog
+        isDialogOpen={isEmailDialogOpen}
+        peerId={peerId || ""}
+        onClose={() => setIsEmailDialogOpen(false)}
+      />
+    </Box>
   );
 };
 
