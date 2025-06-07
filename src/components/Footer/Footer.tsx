@@ -14,7 +14,7 @@ import {
   Instagram,
   X
 } from "@mui/icons-material";
-import { socialLinks } from "../../utils/utils";
+import { socialLinks } from "../../lib/constants";
 
 const Footer = () => {
   const theme = useTheme();

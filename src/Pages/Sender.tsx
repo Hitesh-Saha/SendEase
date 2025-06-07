@@ -42,7 +42,7 @@ import {
 import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
-import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../utils/utils";
+import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../lib/utils";
 import { RecieverData } from "../models/common";
 import { encryptFile } from "../core/FileEncryption";
 import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
@@ -123,13 +123,13 @@ const Sender = () => {
 
   const initializeSender = useCallback(() => {
     // Connect to our custom PeerJS server
-    const peerOptions = {
-      host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-      port: window.location.hostname === 'localhost' ? 9000 : 443,
-      path: '/peerjs',
-      secure: window.location.protocol === 'https:',
-      debug: 2,
-    };
+    // const peerOptions = {
+    //   host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+    //   port: window.location.hostname === 'localhost' ? 9000 : 443,
+    //   path: '/peerjs',
+    //   secure: window.location.protocol === 'https:',
+    //   debug: 2,
+    // };
     
     peer.current = new Peer();
     peer.current.on("open", (id) => {

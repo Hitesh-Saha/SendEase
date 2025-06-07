@@ -12,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import { getFileSize } from "../../utils/utils";
+import { getFileSize } from "../../lib/utils";
 
 type FileItemProps = {
   fileName: string;

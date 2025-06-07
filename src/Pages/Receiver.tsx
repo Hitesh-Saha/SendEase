@@ -23,7 +23,7 @@ import {
 } from "@mui/icons-material";
 import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
-import { getAvatar, getName } from "../utils/utils";
+import { getAvatar, getName } from "../lib/utils";
 import { PeerData, RecievedFileType, RecieverData } from "../models/common";
 import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
 import { decryptFile } from "../core/FileDecryption";
@@ -60,13 +60,13 @@ const Receiver = () => {
 
   const initializeReciever = useCallback(() => {
     // Connect to our custom PeerJS server
-    const peerOptions = {
-      host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-      port: window.location.hostname === 'localhost' ? 9000 : 443,
-      path: '/peerjs',
-      secure: window.location.protocol === 'https:',
-      debug: 2,
-    };
+    // const peerOptions = {
+    //   host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+    //   port: window.location.hostname === 'localhost' ? 9000 : 443,
+    //   path: '/peerjs',
+    //   secure: window.location.protocol === 'https:',
+    //   debug: 2,
+    // };
     
     peer.current = new Peer();
     peer.current.on("open", (id) => {

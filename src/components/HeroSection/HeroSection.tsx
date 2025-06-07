@@ -1,5 +1,4 @@
 import { Button, Container, Grid, Typography, Box } from "@mui/material";
-import { styled, keyframes } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { Send, Download } from "@mui/icons-material";
 import { GlowingBox, HeroImageContainer, FloatingBox } from "./HeroSection.styles";

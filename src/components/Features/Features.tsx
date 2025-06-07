@@ -4,27 +4,11 @@
  */
 import { Box, Container, Grid, Typography, Theme } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
-import {
-  Lock,
-  Shield,
-  EnhancedEncryption,
-  VerifiedUser,
-  Speed,
-  PeopleAlt,
-  Public,
-  CloudSync,
-} from "@mui/icons-material";
+import { allFeatures } from "../../lib/constants";
 
 interface FeatureProps {
   category: "security" | "feature";
   theme?: Theme;
-}
-
-interface Feature {
-  icon: JSX.Element;
-  title: string;
-  description: string;
-  category: "security" | "feature";
 }
 
 const shine = keyframes`
@@ -138,77 +122,7 @@ const StyledCategoryBadge = styled(Typography, {
   letterSpacing: "0.5px",
 }));
 
-const SectionTitle = styled(Typography)(({ theme }) => ({
-  position: "relative",
-  "&::after": {
-    content: '""',
-    position: "absolute",
-    bottom: "-16px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "100px",
-    height: "4px",
-    background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main}, ${theme.palette.primary.main})`,
-    backgroundSize: "200% 100%",
-    animation: `${shine} 3s linear infinite`,
-    borderRadius: theme.shape.borderRadius,
-  },
-}));
-
 const Features = () => {
-  const allFeatures: Feature[] = [
-    {
-      icon: <Lock sx={{ fontSize: 40, color: "white" }} />,
-      title: "End-to-End Encryption",
-      description: "Military-grade AES-256 encryption for all your transfers.",
-      category: "security",
-    },
-    {
-      icon: <Speed sx={{ fontSize: 40, color: "white" }} />,
-      title: "Lightning Fast",
-      description: "Direct P2P connections for maximum transfer speeds.",
-      category: "feature",
-    },
-    {
-      icon: <Shield sx={{ fontSize: 40, color: "white" }} />,
-      title: "Zero Knowledge",
-      description:
-        "Your files never touch our servers. Complete privacy guaranteed.",
-      category: "security",
-    },
-    {
-      icon: <Public sx={{ fontSize: 40, color: "white" }} />,
-      title: "Cross Platform",
-      description: "Works on any device with a modern web browser.",
-      category: "feature",
-    },
-    {
-      icon: <EnhancedEncryption sx={{ fontSize: 40, color: "white" }} />,
-      title: "Secure Key Exchange",
-      description: "RSA key pairs ensure secure communication between peers.",
-      category: "security",
-    },
-    {
-      icon: <CloudSync sx={{ fontSize: 40, color: "white" }} />,
-      title: "No Cloud Storage",
-      description:
-        "Direct peer-to-peer transfers without intermediary storage.",
-      category: "feature",
-    },
-    {
-      icon: <VerifiedUser sx={{ fontSize: 40, color: "white" }} />,
-      title: "No Authentication",
-      description: "Share files instantly without creating an account.",
-      category: "security",
-    },
-    {
-      icon: <PeopleAlt sx={{ fontSize: 40, color: "white" }} />,
-      title: "Multiple Recipients",
-      description: "Share with multiple people using unique transfer codes.",
-      category: "feature",
-    },
-  ];
-
   return (
     <Box
       component="section"
@@ -269,7 +183,9 @@ const Features = () => {
           Modern, efficient, and completely private.
         </Typography>
         <Grid container spacing={4}>
-          {allFeatures.map((feature, index) => (
+          {allFeatures.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <FeatureCard
                 category={feature.category as "security" | "feature"}
@@ -283,7 +199,7 @@ const Features = () => {
                   className="feature-icon"
                   category={feature.category as "security" | "feature"}
                 >
-                  {feature.icon}
+                  <Icon sx={{ fontSize: 40, color: "white" }}/>
                 </StyledIconWrapper>
                 <Typography
                   variant="h5"
@@ -322,7 +238,7 @@ const Features = () => {
                 </Typography>
               </FeatureCard>
             </Grid>
-          ))}
+          )})}
         </Grid>
       </Container>
     </Box>
