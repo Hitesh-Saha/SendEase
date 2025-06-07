@@ -2,147 +2,15 @@ import { Button, Container, Grid, Typography, Box } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { Send, Download } from "@mui/icons-material";
-
-const float = keyframes`
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-`;
-
-const pulse = keyframes`
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-`;
-
-const GlowingBox = styled(Box)(({ theme }) => ({
-  position: 'relative',
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '100%',
-    height: '100%',
-    background: `radial-gradient(circle, ${theme.palette.primary.main}20 0%, transparent 70%)`,
-    animation: `${pulse} 3s ease-in-out infinite`,
-    zIndex: -1,
-  }
-}));
-
-const HeroImageContainer = styled(Box)(({ theme }) => ({
-  position: 'relative',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: '10%',
-    left: '10%',
-    width: '80%',
-    height: '80%',
-    background: `radial-gradient(circle, ${theme.palette.primary.main}30 0%, transparent 70%)`,
-    filter: 'blur(40px)',
-    animation: `${pulse} 3s ease-in-out infinite`,
-    zIndex: -1,
-  }
-}));
-
-const FloatingBox = styled(Box)(() => ({
-  animation: `${float} 6s ease-in-out infinite`,
-}));
+import { GlowingBox, HeroImageContainer, FloatingBox } from "./HeroSection.styles";
 
 const HeroSection = () => {
   const navigate = useNavigate();
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 8, mb: 12 }}>
-      <Grid container spacing={4} alignItems="center">
-        <Grid item xs={12} md={6}>
-          <GlowingBox>
-            <Typography
-              component="h1"
-              variant="h2"
-              gutterBottom
-              sx={{
-                fontWeight: 800,
-                fontSize: { xs: "2.5rem", md: "3.5rem" },
-                background: (theme) => `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-                mb: 3,
-              }}
-            >
-              Share Files Securely & Instantly
-            </Typography>
-          </GlowingBox>
-          <Typography
-            variant="h5"
-            color="text.secondary"
-            sx={{ mb: 4, lineHeight: 1.6 }}
-          >
-            Experience the future of file sharing with end-to-end encryption and peer-to-peer technology. No size limits, no cloud storage.
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={() => navigate("/sender")}
-                startIcon={<Send />}
-                sx={{
-                  minWidth: 180,
-                  height: 48,
-                  fontSize: "1.1rem",
-                  background: (theme) => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                  transition: 'transform 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                  }
-                }}
-              >
-                Start Sending
-              </Button>
-            </Grid>
-            <Grid item>
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => navigate("/receiver")}
-                startIcon={<Download />}
-                sx={{
-                  minWidth: 180,
-                  height: 48,
-                  fontSize: "1.1rem",
-                  borderColor: 'primary.main',
-                  transition: 'transform 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                    borderColor: 'secondary.main',
-                  }
-                }}
-              >
-                Receive Files
-              </Button>
-            </Grid>
-          </Grid>
-        </Grid>
-        <Grid item xs={12} md={6}>
+    <Container maxWidth="lg" sx={{ mt: { xs: 4, md: 8 }, mb: { xs: 6, md: 12 } }}>
+      <Grid container spacing={{ xs: 2, md: 4 }} alignItems="center">
+      <Grid item xs={12} md={6}>
           <HeroImageContainer>
             <FloatingBox>
               <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -239,6 +107,85 @@ const HeroSection = () => {
             </FloatingBox>
           </HeroImageContainer>
         </Grid>
+        <Grid item xs={12} md={6}>
+          <GlowingBox>
+            <Typography
+              component="h1"
+              variant="h2"
+              gutterBottom
+              sx={{
+                fontWeight: 800,
+                fontSize: { xs: "2rem", sm: "2.5rem", md: "3.5rem" },
+                background: (theme) => `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                color: "transparent",
+                mb: { xs: 2, md: 3 },
+                textAlign: { xs: 'center', md: 'left' },
+              }}
+            >
+              Share Files Securely & Instantly
+            </Typography>
+          </GlowingBox>
+          <Typography
+            variant="h5"
+            color="text.secondary"
+            sx={{ 
+              mb: { xs: 3, md: 4 }, 
+              lineHeight: 1.6,
+              fontSize: { xs: '1.1rem', md: '1.25rem' },
+              textAlign: { xs: 'center', md: 'left' },
+            }}
+          >
+            Experience the future of file sharing with end-to-end encryption and peer-to-peer technology. No size limits, no cloud storage.
+          </Typography>
+          <Grid container spacing={2} sx={{ justifyContent: { xs: 'center', md: 'flex-start' } }}>
+            <Grid item xs={12} sm="auto">
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => navigate("/sender")}
+                startIcon={<Send />}
+                fullWidth={window.innerWidth < 600}
+                sx={{
+                  minWidth: { xs: '100%', sm: 180 },
+                  height: 48,
+                  fontSize: { xs: '1rem', md: '1.1rem' },
+                  background: (theme) => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                  transition: 'transform 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                  }
+                }}
+              >
+                Start Sending
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm="auto">
+              <Button
+                variant="outlined"
+                size="large"
+                onClick={() => navigate("/receiver")}
+                startIcon={<Download />}
+                fullWidth={window.innerWidth < 600}
+                sx={{
+                  minWidth: { xs: '100%', sm: 180 },
+                  height: 48,
+                  fontSize: { xs: '1rem', md: '1.1rem' },
+                  borderColor: 'primary.main',
+                  transition: 'transform 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    borderColor: 'secondary.main',
+                  }
+                }}
+              >
+                Receive Files
+              </Button>
+            </Grid>
+          </Grid>
+        </Grid>
+        
       </Grid>
     </Container>
   );

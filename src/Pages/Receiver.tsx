@@ -27,11 +27,14 @@ import { getAvatar, getName } from "../utils/utils";
 import { PeerData, RecievedFileType, RecieverData } from "../models/common";
 import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
 import { decryptFile } from "../core/FileDecryption";
+import { statusMessage } from "../styles/index.styles";
+import LoadingComponent from "../components/LoadingComponent";
 
 const recieverAvatar = getAvatar();
 const recieverName = getName();
 
 const Receiver = () => {
+  const [isInitializing, setIsInitializing] = useState(true);
   const { id: urlSenderId } = useParams();
   const navigate = useNavigate();
   const [peerId, setPeerId] = useState<string | null>(null);
@@ -53,16 +56,33 @@ const Receiver = () => {
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
+  const [isFileReady, setIsFileReady] = useState(false);
 
   const initializeReciever = useCallback(() => {
+    // Connect to our custom PeerJS server
+    const peerOptions = {
+      host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+      port: window.location.hostname === 'localhost' ? 9000 : 443,
+      path: '/peerjs',
+      secure: window.location.protocol === 'https:',
+      debug: 2,
+    };
+    
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id as string);
+      console.log("Connected to signaling server with ID:", id);
+    });
+    
+    peer.current.on("error", (err) => {
+      console.error("PeerJS error:", err);
+      setStatus(`Connection error: ${err.type}`);
     });
 
     const keys = generateRSAPairKeys();
     privateKey.current = keys.privateKey;
     setPublicKey(keys.publicKey);
+    setIsInitializing(false);
 
     peer.current?.on("connection", (conn) => {
       conn.on("data", (data: unknown) => {
@@ -101,7 +121,7 @@ const Receiver = () => {
             recieveFileChunks(peerData.contents, peerData.sequence);
             break;
           case "end":
-            downloadFile();
+            sendResponse();
             break;
           default:
             break;
@@ -201,6 +221,16 @@ const Receiver = () => {
     // }, 500);
   };
 
+  const sendResponse = () => {
+    setIsFileReady(true);
+    if (connInstance.current) {
+      setStatus("File Recieved Successfully");
+      connInstance.current?.send({
+        type: "completed",
+      });
+    }
+  }
+
   const downloadFile = () => {
     const allChunks = Object.keys(recievedFileChunks.current)
       .sort((a, b) => Number(a) - Number(b))
@@ -212,13 +242,7 @@ const Receiver = () => {
     a.download = file.current?.name || "recieved_file";
     a.click();
     URL.revokeObjectURL(url);
-
-    if (connInstance.current) {
-      setStatus("File Downloaded Successfully");
-      connInstance.current?.send({
-        type: "finished",
-      });
-    }
+    setStatus("File Downloaded Successfully");
   };
 
   const createConnection = (e: React.MouseEvent<HTMLElement>) => {
@@ -251,12 +275,17 @@ const Receiver = () => {
     setSender(newSenderId);
     setIsConnected(false);
     setCurrentSenderStatus("Disconnected");
-
     // Update URL when sender ID changes
     if (newSenderId) {
       navigate("/receiver", { replace: true });
     }
   };
+
+  if (isInitializing) {
+    return (
+      <LoadingComponent />
+    );
+  }
 
   return (
     <Box
@@ -359,31 +388,11 @@ const Receiver = () => {
                     Connect
                   </Button>
                 </Grid>
-                <Grid item>
+                {status && (
+                  <Grid item>
                   <Typography
                     variant="body1"
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      background: (theme) =>
-                        status.includes("Successfully")
-                          ? `${theme.palette.success.main}10`
-                          : status.includes("error")
-                          ? `${theme.palette.error.main}10`
-                          : `${theme.palette.info.main}10`,
-                      border: (theme) =>
-                        `1px solid ${
-                          status.includes("Successfully")
-                            ? theme.palette.success.main
-                            : status.includes("error")
-                            ? theme.palette.error.main
-                            : theme.palette.info.main
-                        }20`,
-                      color: "text.secondary",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                    }}
+                    sx={statusMessage({ status })}
                   >
                     {status.includes("Successfully") ? (
                       <CheckCircle color="success" />
@@ -394,7 +403,7 @@ const Receiver = () => {
                     )}
                     {status}
                   </Typography>
-                </Grid>{" "}
+                </Grid>)}
                 {file.current && (
                   <Grid item>
                     <Box
@@ -488,6 +497,28 @@ const Receiver = () => {
                         fileType={file.current?.type}
                         isRecieveMode={true}
                       />
+                      {isFileReady && (
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={downloadFile}
+                          sx={{
+                            mt: 2,
+                            background: (theme) =>
+                              `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            color: "white",
+                            py: 1.5,
+                            borderRadius: 2,
+                            "&:hover": {
+                              transform: "translateY(-2px)",
+                              boxShadow: (theme) =>
+                                `0 8px 16px ${theme.palette.primary.main}40`,
+                            },
+                          }}
+                        >
+                          Download File
+                        </Button>
+                      )}
                     </Box>
                   </Grid>
                 )}

@@ -42,7 +42,7 @@ import {
 import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
-import { getAvatar, getName } from "../utils/utils";
+import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../utils/utils";
 import { RecieverData } from "../models/common";
 import { encryptFile } from "../core/FileEncryption";
 import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
@@ -72,6 +72,13 @@ const Sender = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [transferStats, setTransferStats] = useState({
+    speed: 0, // bytes per second
+    eta: 0, // seconds remaining
+    startTime: 0, // timestamp when transfer started
+    bytesTransferred: 0, // total bytes transferred so far
+  });
+
 
   const handleShareClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -115,9 +122,24 @@ const Sender = () => {
   };
 
   const initializeSender = useCallback(() => {
+    // Connect to our custom PeerJS server
+    const peerOptions = {
+      host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+      port: window.location.hostname === 'localhost' ? 9000 : 443,
+      path: '/peerjs',
+      secure: window.location.protocol === 'https:',
+      debug: 2,
+    };
+    
     peer.current = new Peer();
     peer.current.on("open", (id) => {
       setPeerId(id);
+      console.log("Connected to signaling server with ID:", id);
+    });
+    
+    peer.current.on("error", (err) => {
+      console.error("PeerJS error:", err);
+      setStatus(`Connection error: ${err.type}`);
     });
 
     aesKey.current = generateAESKey();
@@ -182,7 +204,17 @@ const Sender = () => {
     if (!fileContents || !connInstance.current) return;
 
     setButtonDisabled(true);
-    setStatus("Sending File...");
+    setStatus("Preparing to send file...");
+    setIsProgressBar(true);
+    setProgress(0);
+    
+    // Initialize transfer statistics
+    setTransferStats({
+      speed: 0,
+      eta: 0,
+      startTime: Date.now(),
+      bytesTransferred: 0,
+    });
 
     connInstance.current?.send({
       fileName: file?.name,
@@ -196,10 +228,15 @@ const Sender = () => {
   };
 
   connInstance.current?.on("data", (data: any) => {
-    if (data.type === "finished") {
-      setStatus("File Sent Successfully");
+    if (data.type === "completed") {
+      const totalTime = (Date.now() - transferStats.startTime) / 1000; // in seconds
+      const averageSpeed = file ? file.size / totalTime : 0; // bytes per second
+      
+      setStatus(`File Sent Successfully (${formatSpeed(averageSpeed)} avg)`);
       setButtonDisabled(false);
       setFileContents(null);
+      setProgress(0);
+      setIsProgressBar(false);
     }
   });
 
@@ -207,6 +244,9 @@ const Sender = () => {
     const chunkSize = 16 * 1024; // 16 KB per chunk
     let offset = 0;
     let sequence = 0;
+    const totalSize = fileContents?.byteLength || 0;
+    let lastUpdateTime = Date.now();
+    let lastOffset = 0;
 
     const sendNextChunk = () => {
       if (!fileContents || !connInstance.current?.open) return;
@@ -224,6 +264,37 @@ const Sender = () => {
       });
       offset += chunkSize;
       sequence += 1;
+      
+      // Update progress and transfer statistics
+      const now = Date.now();
+      
+      // Update transfer stats every ~500ms to avoid excessive re-renders
+      if (now - lastUpdateTime > 500) {
+        const timeElapsed = (now - lastUpdateTime) / 1000; // in seconds
+        const bytesInInterval = offset - lastOffset;
+        const currentSpeed = bytesInInterval / timeElapsed; // bytes per second
+        const bytesRemaining = totalSize - offset;
+        const eta = currentSpeed > 0 ? bytesRemaining / currentSpeed : 0;
+        
+        setTransferStats(prev => ({
+          ...prev,
+          speed: currentSpeed,
+          eta: eta,
+          bytesTransferred: offset
+        }));
+        
+        lastUpdateTime = now;
+        lastOffset = offset;
+      }
+      
+      const currentProgress = Math.min(Math.round((offset / totalSize) * 100), 99);
+      setProgress(currentProgress);
+      
+      // Update status message with progress percentage only
+      // (speed and ETA are shown in the progress bar component)
+      setStatus(`Sending File...`);
+      
+      // Use setTimeout to prevent UI freezing with large files
       sendNextChunk();
     };
     sendNextChunk();
@@ -389,21 +460,25 @@ const Sender = () => {
                   )}
                 </Grid>
 
-                <Grid item>
-                  {status && <Typography variant="body1" sx={statusMessage({ status })}>
-                    {status.includes("Successfully") ? (
-                      <CheckCircle color="success" />
-                    ) : status.includes("error") ? (
-                      <Error color="error" />
-                    ) : (
-                      <Info color="info" />
-                    )}
-                    {status}
-                  </Typography>}
+                {status && (
+                  <Grid item>
+                    <Typography variant="body1" sx={statusMessage({ status })}>
+                      {status.includes("Successfully") ? (
+                        <CheckCircle color="success" />
+                      ) : status.includes("error") ? (
+                        <Error color="error" />
+                      ) : (
+                        <Info color="info" />
+                      )}
+                      {status}
+                    </Typography>
+                  </Grid>
+                )}
 
-                  {isProgressBar && (
+                {isProgressBar && (
+                  <Grid item>
                     <Box sx={glassBackgroundLight}>
-                      <Box sx={{ width: "100%", position: "relative" }}>
+                      <Box sx={{ width: "100%", position: "relative", mb: 2 }}>
                         <LinearProgress
                           variant="determinate"
                           value={progress}
@@ -422,9 +497,24 @@ const Sender = () => {
                           {progress.toFixed(1)}%
                         </Typography>
                       </Box>
+                      
+                      {/* Transfer statistics */}
+                      {transferStats.speed > 0 && (
+                        <Box sx={{ display: "flex", justifyContent: "space-between", px: 1, flexWrap: "wrap", gap: 1 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Speed: {formatSpeed(transferStats.speed)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Estimated Time: {formatTime(transferStats.eta)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            Sent: {getFileSize(transferStats.bytesTransferred)} / {file ? getFileSize(file.size) : '0 B'}
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
-                  )}
-                </Grid>
+                  </Grid>
+                )}
 
                 {file && (
                   <Grid item>

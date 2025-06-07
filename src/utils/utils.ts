@@ -2,10 +2,23 @@ import { AvatarGenerator } from 'random-avatar-generator';
 import { uniqueNamesGenerator, Config, adjectives, animals } from 'unique-names-generator';
 
 export const getFileSize = (size: number) => {
-  if (size < 1024) return `${size} Bytes`;
+  if (size === 0) return '0 Bytes';
+  else if (size < 1024) return `${size} Bytes`;
   else if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
   else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
   else return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+export const formatSpeed = (bytesPerSecond: number) => {
+  return `${getFileSize(bytesPerSecond)}/s`;
+};
+
+export const formatTime = (seconds: number) => {
+  if (seconds === Infinity || isNaN(seconds)) return 'calculating...';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
 };
 
 // export const getFileTypeIcon = (type: string) => {
@@ -41,4 +54,5 @@ export const socialLinks = {
   linkedin: 'https://www.linkedin.com/in/hitesh-saha-5401671b3/',
   github: 'https://github.com/Hitesh-Saha',
   twitter: 'https://x.com/hiteshsaha03?s=21',
+  medium: 'https://medium.com/@HiteshSaha'
 }
