@@ -33,7 +33,7 @@ export const downloadProcessedFile = (
   fileName: string
 ): void => {
   // Create blob in chunks to avoid memory issues
-  const chunkSize = 1024 * 1024; // 1MB chunks
+  // const chunkSize = 1024 * 1024; // 1MB chunks
   const sortedChunks = Object.keys(chunks)
     .sort((a, b) => Number(a) - Number(b))
     .map((key) => chunks[Number(key)]);
