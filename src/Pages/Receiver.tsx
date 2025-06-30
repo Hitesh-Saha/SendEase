@@ -27,14 +27,12 @@ import { getAvatar, getName } from "../lib/utils";
 import { PeerData, RecievedFileType, RecieverData } from "../models/common";
 import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
 import { decryptFile } from "../core/FileDecryption";
-import { statusMessage } from "../styles/index.styles";
-import LoadingComponent from "../components/LoadingComponent";
+import { glassBackground, glassBackgroundLight, gradientAvatar, gradientButton, gradientText, pageContainer, progressBar, statusMessage, textField } from "../styles/index.styles";
 
 const recieverAvatar = getAvatar();
 const recieverName = getName();
 
 const Receiver = () => {
-  const [isInitializing, setIsInitializing] = useState(true);
   const { id: urlSenderId } = useParams();
   const navigate = useNavigate();
   const [peerId, setPeerId] = useState<string | null>(null);
@@ -56,33 +54,24 @@ const Receiver = () => {
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
-  const [isFileReady, setIsFileReady] = useState(false);
 
   const initializeReciever = useCallback(() => {
     // Connect to our custom PeerJS server
-    // const peerOptions = {
-    //   host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-    //   port: window.location.hostname === 'localhost' ? 9000 : 443,
-    //   path: '/peerjs',
-    //   secure: window.location.protocol === 'https:',
-    //   debug: 2,
-    // };
-    
-    peer.current = new Peer();
+    const peerOptions = {
+      host: window.location.hostname || 'localhost',
+      port: window.location.protocol === 'https:' ? 443 : 9000,
+      path: '/sendease',
+      secure: window.location.protocol === 'https:',
+      debugger: 2,
+    };
+    peer.current = new Peer(peerOptions);
     peer.current.on("open", (id) => {
       setPeerId(id as string);
-      console.log("Connected to signaling server with ID:", id);
-    });
-    
-    peer.current.on("error", (err) => {
-      console.error("PeerJS error:", err);
-      setStatus(`Connection error: ${err.type}`);
     });
 
     const keys = generateRSAPairKeys();
     privateKey.current = keys.privateKey;
     setPublicKey(keys.publicKey);
-    setIsInitializing(false);
 
     peer.current?.on("connection", (conn) => {
       conn.on("data", (data: unknown) => {
@@ -121,7 +110,7 @@ const Receiver = () => {
             recieveFileChunks(peerData.contents, peerData.sequence);
             break;
           case "end":
-            sendResponse();
+            downloadFile();
             break;
           default:
             break;
@@ -221,16 +210,6 @@ const Receiver = () => {
     // }, 500);
   };
 
-  const sendResponse = () => {
-    setIsFileReady(true);
-    if (connInstance.current) {
-      setStatus("File Recieved Successfully");
-      connInstance.current?.send({
-        type: "completed",
-      });
-    }
-  }
-
   const downloadFile = () => {
     const allChunks = Object.keys(recievedFileChunks.current)
       .sort((a, b) => Number(a) - Number(b))
@@ -242,7 +221,13 @@ const Receiver = () => {
     a.download = file.current?.name || "recieved_file";
     a.click();
     URL.revokeObjectURL(url);
-    setStatus("File Downloaded Successfully");
+
+    if (connInstance.current) {
+      setStatus("File Downloaded Successfully");
+      connInstance.current?.send({
+        type: "completed",
+      });
+    }
   };
 
   const createConnection = (e: React.MouseEvent<HTMLElement>) => {
@@ -275,67 +260,33 @@ const Receiver = () => {
     setSender(newSenderId);
     setIsConnected(false);
     setCurrentSenderStatus("Disconnected");
+
     // Update URL when sender ID changes
     if (newSenderId) {
       navigate("/receiver", { replace: true });
     }
   };
 
-  if (isInitializing) {
-    return (
-      <LoadingComponent />
-    );
-  }
-
   return (
     <Box
-      sx={{
-        minHeight: "calc(100vh - 64px)",
-        background: (theme) =>
-          `linear-gradient(145deg, ${theme.palette.background.default}, ${theme.palette.background.paper})`,
-        py: { xs: 2, sm: 3, md: 4 },
-        px: { xs: 1, sm: 2 },
-      }}
+      sx={pageContainer}
     >
       <Container maxWidth="xl">
         <Grid container direction="row" spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12} lg={8}>
             <Box
-              sx={{
-                background: (theme) =>
-                  `linear-gradient(145deg, ${theme.palette.background.paper}80, ${theme.palette.background.default}40)`,
-                backdropFilter: "blur(8px)",
-                borderRadius: 2,
-                p: { xs: 2, sm: 3, md: 4 },
-                boxShadow: (theme) =>
-                  `0 8px 32px ${theme.palette.primary.main}10`,
-              }}
+              sx={glassBackground}
             >
               <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 4 }}>
                 <Grid item sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center", flexWrap: 'wrap' }}>
                   <Avatar
                     src={recieverAvatar}
-                    sx={{
-                      width: { xs: 48, sm: 56 },
-                      height: { xs: 48, sm: 56 },
-                      boxShadow: (theme) =>
-                        `0 0 0 4px ${theme.palette.background.paper}`,
-                      background: (theme) =>
-                        `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    }}
+                    sx={gradientAvatar}
                   />
                   <Typography
                     variant="h4"
                     component="h1"
-                    sx={{
-                      fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
-                      fontWeight: 700,
-                      background: (theme) =>
-                        `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                      backgroundClip: "text",
-                      WebkitBackgroundClip: "text",
-                      color: "transparent",
-                    }}
+                    sx={gradientText}
                   >
                     {recieverName}
                   </Typography>
@@ -347,14 +298,7 @@ const Receiver = () => {
                     label="Enter Sender ID"
                     fullWidth
                     onChange={onSenderChangeHandler}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        background: (theme) =>
-                          `${theme.palette.background.paper}80`,
-                        backdropFilter: "blur(8px)",
-                        borderRadius: 2,
-                      },
-                    }}
+                    sx={textField}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -370,26 +314,14 @@ const Receiver = () => {
                     size="large"
                     onClick={createConnection}
                     disabled={isConnected}
-                    sx={{
-                      background: (theme) =>
-                        `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                      color: "white",
-                      px: 4,
-                      py: 1.5,
-                      borderRadius: 2,
-                      "&:hover": {
-                        transform: "translateY(-2px)",
-                        boxShadow: (theme) =>
-                          `0 8px 16px ${theme.palette.primary.main}40`,
-                      },
-                    }}
+                    sx={gradientButton}
                     startIcon={<Link />}
                   >
                     Connect
                   </Button>
                 </Grid>
                 {status && (
-                  <Grid item>
+                <Grid item>
                   <Typography
                     variant="body1"
                     sx={statusMessage({ status })}
@@ -403,36 +335,18 @@ const Receiver = () => {
                     )}
                     {status}
                   </Typography>
-                </Grid>)}
+                </Grid>
+                )}
                 {file.current && (
                   <Grid item>
                     <Box
-                      sx={{
-                        background: (theme) =>
-                          `${theme.palette.background.paper}60`,
-                        backdropFilter: "blur(8px)",
-                        borderRadius: 2,
-                        p: 3,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
+                      sx={glassBackgroundLight}
                     >
                       <Box sx={{ width: "100%", position: "relative" }}>
                         <LinearProgress
                           variant="determinate"
                           value={progress}
-                          sx={{
-                            height: 12,
-                            borderRadius: 6,
-                            backgroundColor: (theme) =>
-                              `${theme.palette.primary.main}20`,
-                            "& .MuiLinearProgress-bar": {
-                              background: (theme) =>
-                                `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                              borderRadius: 6,
-                            },
-                          }}
+                          sx={progressBar}
                         />
                         <Typography
                           variant="body2"
@@ -479,17 +393,11 @@ const Receiver = () => {
                       </Grid>
                     </Box>
                   </Grid>
-                )}{" "}
+                )}
                 {file.current && (
                   <Grid item>
                     <Box
-                      sx={{
-                        background: (theme) =>
-                          `${theme.palette.background.paper}60`,
-                        backdropFilter: "blur(8px)",
-                        borderRadius: 2,
-                        p: 2,
-                      }}
+                      sx={glassBackgroundLight}
                     >
                       <FileItem
                         fileName={file.current?.name || ""}
@@ -497,28 +405,6 @@ const Receiver = () => {
                         fileType={file.current?.type}
                         isRecieveMode={true}
                       />
-                      {isFileReady && (
-                        <Button
-                          variant="contained"
-                          fullWidth
-                          onClick={downloadFile}
-                          sx={{
-                            mt: 2,
-                            background: (theme) =>
-                              `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            color: "white",
-                            py: 1.5,
-                            borderRadius: 2,
-                            "&:hover": {
-                              transform: "translateY(-2px)",
-                              boxShadow: (theme) =>
-                                `0 8px 16px ${theme.palette.primary.main}40`,
-                            },
-                          }}
-                        >
-                          Download File
-                        </Button>
-                      )}
                     </Box>
                   </Grid>
                 )}
@@ -527,16 +413,7 @@ const Receiver = () => {
           </Grid>
           <Grid item xs={12} md={4}>
             <Box
-              sx={{
-                background: (theme) =>
-                  `linear-gradient(145deg, ${theme.palette.background.paper}60, ${theme.palette.background.default}40)`,
-                backdropFilter: "blur(8px)",
-                borderRadius: 2,
-                p: 3,
-                height: "100%",
-                boxShadow: (theme) =>
-                  `0 8px 32px ${theme.palette.primary.main}10`,
-              }}
+              sx={glassBackgroundLight}
             >
               <RecieverPanel
                 reciever={senderDetails}
@@ -544,7 +421,7 @@ const Receiver = () => {
                 isRecieveMode={true}
               />
             </Box>
-          </Grid>{" "}
+          </Grid>
         </Grid>
       </Container>
     </Box>

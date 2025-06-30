@@ -122,28 +122,25 @@ const Sender = () => {
   };
 
   const initializeSender = useCallback(() => {
+    // peer.current = new Peer();
     // Connect to our custom PeerJS server
-    // const peerOptions = {
-    //   host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-    //   port: window.location.hostname === 'localhost' ? 9000 : 443,
-    //   path: '/peerjs',
-    //   secure: window.location.protocol === 'https:',
-    //   debug: 2,
-    // };
-    
-    peer.current = new Peer();
+    const peerOptions = {
+      host: window.location.hostname || 'localhost',
+      port: window.location.protocol === 'https:' ? 443 : 9000,
+      path: '/sendease',
+      secure: window.location.protocol === 'https:',
+      debugger: 2,
+    };
+    peer.current = new Peer(peerOptions);
     peer.current.on("open", (id) => {
       setPeerId(id);
       console.log("Connected to signaling server with ID:", id);
     });
-    
     peer.current.on("error", (err) => {
       console.error("PeerJS error:", err);
       setStatus(`Connection error: ${err.type}`);
     });
-
     aesKey.current = generateAESKey();
-
     peer.current.on("connection", (conn) => {
       conn.on("data", (data: any) => {
         if (data.type == "connect") {

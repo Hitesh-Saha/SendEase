@@ -12,7 +12,7 @@ const HeroSection = () => {
       <Grid item xs={12} md={6}>
           <HeroImageContainer>
             <FloatingBox>
-              <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
+              <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 {/* Modern 3D Illustration */}
                 <svg
                   viewBox="0 0 500 500"

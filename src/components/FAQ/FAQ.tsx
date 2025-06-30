@@ -40,7 +40,7 @@ const FAQ = () => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState<string | false>(false);
 
-  const handleChange = (panel: string) => (isExpanded: boolean) => {
+  const handleChange = (panel: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false);
   };
 
@@ -103,9 +103,9 @@ const FAQ = () => {
             <StyledAccordion
               key={index}
               expanded={expanded === `panel${index}`}
-              onChange={() => handleChange(`panel${index}`)}
+              onChange={handleChange(`panel${index}`)}
             >
-              <StyledAccordionSummary expandIcon={<ExpandMore />}>
+              <StyledAccordionSummary expandIcon={<ExpandMore />} aria-controls={`panel${index}-content`} id={`panel${index}-header`}>
                 <Typography
                   variant="h6"
                   sx={{
