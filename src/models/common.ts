@@ -49,3 +49,4 @@ export interface ConnectData {
 
 export type PeerData = FileMetaData | ChunkData | ConnectData | { type: 'start' } | { type: 'end' };
 
+export type ShareOption = 'copy-id' | 'copy-link' | 'email' | 'whatsapp';

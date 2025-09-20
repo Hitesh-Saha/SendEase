@@ -23,11 +23,11 @@ import {
 } from "@mui/icons-material";
 import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
-import { getAvatar, getName } from "../lib/utils";
+import { formatSpeed, formatTime, getAvatar, getName } from "../lib/utils";
 import { PeerData, RecievedFileType, RecieverData } from "../models/common";
 import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
-import { decryptFile } from "../core/FileDecryption";
 import { glassBackground, glassBackgroundLight, gradientAvatar, gradientButton, gradientText, pageContainer, progressBar, statusMessage, textField } from "../styles/index.styles";
+import FileRecieverWorker from '../lib/fileReceiver.worker.ts?worker';
 
 const recieverAvatar = getAvatar();
 const recieverName = getName();
@@ -47,13 +47,14 @@ const Receiver = () => {
   const file = useRef<RecievedFileType | null>(null);
   const connInstance = useRef<DataConnection | null>(null);
   const peer = useRef<Peer | null>(null);
-  const recievedFileChunks = useRef<Record<number, Uint8Array>>({});
   const aesKey = useRef<string>("");
   const startTime = useRef<number | null>(null);
   const receivedBytes = useRef<number>(0);
   const [progress, setProgress] = useState<number>(0);
   const [speed, setSpeed] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const [isDownloadEnabled, setIsDownloadEnabled] = useState<boolean>(false);
 
   const initializeReciever = useCallback(() => {
     // Connect to our custom PeerJS server
@@ -110,7 +111,7 @@ const Receiver = () => {
             recieveFileChunks(peerData.contents, peerData.sequence);
             break;
           case "end":
-            downloadFile();
+            respondSender();
             break;
           default:
             break;
@@ -121,7 +122,6 @@ const Receiver = () => {
   }, []);
 
   useEffect(() => {
-
     new Promise((resolve) => {
       initializeReciever();
       resolve(true);
@@ -150,6 +150,9 @@ const Receiver = () => {
         setIsConnected(true);
       }
     });
+
+    workerRef.current = new FileRecieverWorker();
+    workerRef.current.postMessage({ type: 'init' });
     
     return () => {
       if (peer.current) {
@@ -161,72 +164,70 @@ const Receiver = () => {
     };
   }, []);
 
-  const updateStatus = useCallback(
+  const updateStatus = 
+  // useCallback(
     (currentReceived: number, totalSize: number) => {
       if (totalSize && startTime.current) {
         const elapsedTime = (Date.now() - startTime.current) / 1000; // in seconds
         const speedBps = currentReceived / elapsedTime; // bytes per sec
-        const speedKbps = speedBps / 1024;
-        const speedMbps = speedKbps / 1024;
         const remainingBytes = totalSize - currentReceived;
         const remainingTime = remainingBytes / speedBps;
 
-        const minutes = Math.floor(remainingTime / 60);
-        const seconds = Math.floor(remainingTime % 60);
-
-        if (minutes > 60) {
-          const hours = Math.floor(minutes / 60);
-          const newMinutes = Math.floor(minutes % 60);
-          setEstimatedTime(`${hours}h ${newMinutes}m ${seconds}s`);
-        } else if (minutes > 0) {
-          setEstimatedTime(`${minutes}m ${seconds}s`);
-        } else {
-          setEstimatedTime(`${seconds}s`);
-        }
         const newProgress = (currentReceived / totalSize) * 100;
         setProgress(Math.round(Math.min(newProgress, 100)));
-        setSpeed(
-          speedMbps >= 1
-            ? `${speedMbps.toFixed(2)} MB/s`
-            : `${speedKbps.toFixed(2)} KB/s`
-        );
+
+        setEstimatedTime(remainingTime ? formatTime(remainingTime) : 'Calculating...');
+        setSpeed(formatSpeed(speedBps));
       }
-    },
-    []
-  );
+    }
+    // []
+  // );
 
   // Function to handle the received file chunks
   const recieveFileChunks = (encryptedChunk: string, sequence: number) => {
     if (!aesKey.current) return;
+    workerRef.current?.postMessage({
+      type: 'chunk',
+      chunk: encryptedChunk,
+      sequence,
+      aesKey: aesKey.current,
+      fileType: file.current?.type || 'application/octet-stream',
+    });
 
-    const decryptedChunk = decryptFile(encryptedChunk, aesKey.current);
-    recievedFileChunks.current[sequence] = decryptedChunk;
-
-    receivedBytes.current += decryptedChunk.byteLength;
+    receivedBytes.current += encryptedChunk.length;
     updateStatus(receivedBytes.current, file.current?.size || 0);
-
-    // setTimeout(() => {
-    //   updateStatus(currentReceived, file.current?.size || 0);
-    // }, 500);
   };
 
   const downloadFile = () => {
-    const allChunks = Object.keys(recievedFileChunks.current)
-      .sort((a, b) => Number(a) - Number(b))
-      .map((key) => recievedFileChunks.current[Number(key)]);
-    const blob = new Blob(allChunks);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.current?.name || "recieved_file";
-    a.click();
-    URL.revokeObjectURL(url);
-
+    setStatus("Preparing file for download...");
+    workerRef.current?.postMessage({ type: 'download', aesKey: aesKey.current, fileType: file.current?.type || 'application/octet-stream' });
+    if (workerRef.current) {
+      workerRef.current.onmessage = (e) => {
+        const { type, blob } = e.data;
+        if (type !== 'download-ready' || !blob) return;
+        setStatus("Download started...");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.current?.name || "recieved_file";
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus("File downloaded successfully");
+        workerRef.current?.postMessage({ type: 'cleanup' });
+        workerRef.current?.terminate();
+        workerRef.current = null;
+        setIsDownloadEnabled(false);
+      }
+    }
+  };
+  
+  const respondSender = () => {
     if (connInstance.current) {
-      setStatus("File Downloaded Successfully");
       connInstance.current?.send({
         type: "completed",
       });
+      setIsDownloadEnabled(true);
+      setStatus("File Recieved Successfully");
     }
   };
 
@@ -277,7 +278,7 @@ const Receiver = () => {
             <Box
               sx={glassBackground}
             >
-              <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 4 }}>
+              <Grid container direction="column" spacing={{ xs: 2, sm: 3, md: 3 }}>
                 <Grid item sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center", flexWrap: 'wrap' }}>
                   <Avatar
                     src={recieverAvatar}
@@ -340,20 +341,20 @@ const Receiver = () => {
                 {file.current && (
                   <Grid item>
                     <Box
-                      sx={glassBackgroundLight}
+                      sx={{ ...glassBackgroundLight, display: 'flex', flexDirection: 'column', gap: 1, justifyContent: 'center' }}
                     >
-                      <Box sx={{ width: "100%", position: "relative" }}>
+                      <Box sx={{ width: "100%", position: "relative", mt: 2 }}>
                         <LinearProgress
                           variant="determinate"
                           value={progress}
                           sx={progressBar}
                         />
                         <Typography
-                          variant="body2"
+                          variant="body1"
                           sx={{
                             position: "absolute",
                             right: 0,
-                            top: -20,
+                            top: -25,
                             fontWeight: 600,
                             color: "primary.main",
                           }}
@@ -361,7 +362,7 @@ const Receiver = () => {
                           {progress.toFixed(1)}%
                         </Typography>
                       </Box>
-                      <Grid container spacing={2}>
+                      <Grid container spacing={1}>
                         <Grid item xs={12} sm={6}>
                           <Typography
                             variant="body2"
@@ -397,7 +398,7 @@ const Receiver = () => {
                 {file.current && (
                   <Grid item>
                     <Box
-                      sx={glassBackgroundLight}
+                      sx={{...glassBackgroundLight, display: 'flex', alignItems: 'center', gap: 1} }
                     >
                       <FileItem
                         fileName={file.current?.name || ""}
@@ -405,6 +406,16 @@ const Receiver = () => {
                         fileType={file.current?.type}
                         isRecieveMode={true}
                       />
+                      <Button
+                        variant="contained"
+                        onClick={() => {
+                          downloadFile();
+                        }}
+                        disabled={!isDownloadEnabled}
+                        sx={gradientButton}
+                      >
+                        Download
+                      </Button>
                     </Box>
                   </Grid>
                 )}

@@ -8,27 +8,21 @@ import {
   Grid,
   InputAdornment,
   LinearProgress,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
 import {
   CheckCircle,
-  ContentCopy,
-  Email,
   Error,
   Info,
   InsertLink,
   Share,
-  WhatsApp,
+  Schedule,
+  Speed,
 } from "@mui/icons-material";
 import {
   pageContainer,
-  glassMenu,
   glassBackground,
   glassBackgroundLight,
   gradientButton,
@@ -43,10 +37,13 @@ import DragAndDrop from "../components/DragAndDrop/DragAndDrop";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
 import FileItem from "../components/FileList/FileItem";
 import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../lib/utils";
-import { RecieverData } from "../models/common";
-import { encryptFile } from "../core/FileEncryption";
+import { RecieverData, ShareOption } from "../models/common";
 import { encryptAESKey, generateAESKey } from "../core/KeyGeneration";
 import EmailDialog from "../components/EmailDialog/EmailDialog";
+
+// @ts-ignore
+import FileSenderWorker from '../lib/fileSender.worker.ts?worker';
+import MenuBar from "../components/MenuBar";
 
 const senderAvatar = getAvatar();
 const senderName = getName();
@@ -70,7 +67,6 @@ const Sender = () => {
   const aesKey = useRef<string>();
   const encryptedAESKey = useRef<string>();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [transferStats, setTransferStats] = useState({
     speed: 0, // bytes per second
@@ -88,7 +84,7 @@ const Sender = () => {
     setAnchorEl(null);
   };
 
-  const handleShare = async (platform: string) => {
+  const handleShare = async (platform: ShareOption) => {
     if (!peerId) return;
 
     const shareUrl = `${window.location.origin}/receiver/${peerId}`;
@@ -221,80 +217,115 @@ const Sender = () => {
     });
     connInstance.current?.send({ type: "start" });
     sendFileInChunks();
-    connInstance.current?.send({ type: "end" });
   };
 
-  connInstance.current?.on("data", (data: any) => {
-    if (data.type === "completed") {
-      const totalTime = (Date.now() - transferStats.startTime) / 1000; // in seconds
-      const averageSpeed = file ? file.size / totalTime : 0; // bytes per second
-      
-      setStatus(`File Sent Successfully (${formatSpeed(averageSpeed)} avg)`);
-      setButtonDisabled(false);
-      setFileContents(null);
-      setProgress(0);
-      setIsProgressBar(false);
-    }
-  });
+  const sendFileInChunks = async () => {
+    if (!file || !connInstance.current?.open || !aesKey.current) return;
 
-  const sendFileInChunks = () => {
-    const chunkSize = 16 * 1024; // 16 KB per chunk
-    let offset = 0;
-    let sequence = 0;
-    const totalSize = fileContents?.byteLength || 0;
-    let lastUpdateTime = Date.now();
-    let lastOffset = 0;
+    const chunkSize = 256 * 1024; // 256KB chunks for better performance
+    const worker = new FileSenderWorker();
+    const totalSize = file.size;
+    let lastTime = Date.now();
+    let startTime = lastTime;
+    
+    try {
+      // Setup worker message handler before sending the file
+      worker.onmessage = (e: MessageEvent) => {
+        const { type, sequence, contents, offset, error } = e.data;
+        
+        switch (type) {
+          case "chunk":
+            if (!connInstance.current?.open) {
+              worker.terminate();
+              setStatus("Connection lost");
+              setButtonDisabled(false);
+              return;
+            }
 
-    const sendNextChunk = () => {
-      if (!fileContents || !connInstance.current?.open) return;
+            connInstance.current.send({
+              type: "file-data-chunk",
+              sequence,
+              contents,
+            });
 
-      if (offset >= fileContents.byteLength) return;
+            // Always update progress for smooth UI
+            const now = Date.now();
+            const totalElapsed = (now - startTime) / 1000; // total time since start
+            const bytesTransferred = offset;
+            const averageSpeed = bytesTransferred / totalElapsed;
+            
+            // Use average speed for more stable ETA calculation
+            const remainingBytes = totalSize - offset;
+            const eta = remainingBytes / averageSpeed;
+            
+            // Update transfer stats on every chunk for real-time feedback
+            setTransferStats({
+              speed: averageSpeed,
+              eta,
+              startTime,
+              bytesTransferred: offset,
+            });
+            
+            lastTime = now;
 
-      const chunk = new Uint8Array(
-        fileContents.slice(offset, offset + chunkSize)
-      );
-      const encryptedChunk = encryptFile(chunk, aesKey.current!);
-      connInstance.current?.send({
-        contents: encryptedChunk,
-        sequence,
-        type: "file-data-chunk",
+            const currentProgress = Math.min(Math.round((offset / totalSize) * 100), 99);
+            setProgress(currentProgress);
+            setIsProgressBar(true);
+            setStatus(`Sending File...`);
+            break;
+
+          case "done":
+            connInstance.current?.send({ type: "end" });
+            setProgress(100);
+            const totalTime = (Date.now() - startTime) / 1000;
+            const finalSpeed = totalSize / totalTime;
+            setTransferStats(prev => ({
+              ...prev,
+              speed: finalSpeed,
+              eta: 0,
+              bytesTransferred: totalSize
+            }));
+            setStatus(`File Sent Successfully (${formatSpeed(finalSpeed)} avg)`);
+            worker.terminate();
+            setTimeout(() => {
+              setIsProgressBar(false);
+              setProgress(0);
+              setTransferStats({
+                speed: 0,
+                eta: 0,
+                startTime: 0,
+                bytesTransferred: 0,
+              });
+            }, 3000);
+            break;
+
+          case "error":
+            setStatus(`Error: ${error}`);
+            setButtonDisabled(false);
+            worker.terminate();
+            break;
+        }
+      };
+
+      worker.onerror = (error: ErrorEvent) => {
+        setStatus(`Worker error: ${error.message}`);
+        setButtonDisabled(false);
+        worker.terminate();
+      };
+
+      // Start the worker
+      worker.postMessage({
+        file,
+        chunkSize,
+        aesKey: aesKey.current,
       });
-      offset += chunkSize;
-      sequence += 1;
-      
-      // Update progress and transfer statistics
-      const now = Date.now();
-      
-      // Update transfer stats every ~500ms to avoid excessive re-renders
-      if (now - lastUpdateTime > 500) {
-        const timeElapsed = (now - lastUpdateTime) / 1000; // in seconds
-        const bytesInInterval = offset - lastOffset;
-        const currentSpeed = bytesInInterval / timeElapsed; // bytes per second
-        const bytesRemaining = totalSize - offset;
-        const eta = currentSpeed > 0 ? bytesRemaining / currentSpeed : 0;
-        
-        setTransferStats(prev => ({
-          ...prev,
-          speed: currentSpeed,
-          eta: eta,
-          bytesTransferred: offset
-        }));
-        
-        lastUpdateTime = now;
-        lastOffset = offset;
-      }
-      
-      const currentProgress = Math.min(Math.round((offset / totalSize) * 100), 99);
-      setProgress(currentProgress);
-      
-      // Update status message with progress percentage only
-      // (speed and ETA are shown in the progress bar component)
-      setStatus(`Sending File...`);
-      
-      // Use setTimeout to prevent UI freezing with large files
-      sendNextChunk();
-    };
-    sendNextChunk();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? (error as Error)?.message as string : String(error);
+      setStatus(`Failed to start file transfer: ${errorMessage}`);
+      setButtonDisabled(false);
+      worker?.terminate();
+    }
   };
 
   const connectReciever = () => {
@@ -378,46 +409,8 @@ const Sender = () => {
                       ),
                     }}
                     helperText="Share this ID with the receiver to establish connection"
-                  />{" "}
-                  <Menu
-                    anchorEl={anchorEl}
-                    open={open}
-                    onClose={handleShareClose}
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "right",
-                    }}
-                    transformOrigin={{
-                      vertical: "top",
-                      horizontal: "right",
-                    }}
-                    sx={glassMenu}
-                  >
-                    <MenuItem onClick={() => handleShare("copy-id")}>
-                      <ListItemIcon>
-                        <ContentCopy fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Copy ID to clipboard</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare("copy-link")}>
-                      <ListItemIcon>
-                        <InsertLink fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Copy shareable link</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare("email")}>
-                      <ListItemIcon>
-                        <Email fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Send via email</ListItemText>
-                    </MenuItem>
-                    <MenuItem onClick={() => handleShare("whatsapp")}>
-                      <ListItemIcon>
-                        <WhatsApp fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Share on WhatsApp</ListItemText>
-                    </MenuItem>
-                  </Menu>
+                  />
+                  <MenuBar anchorEl={anchorEl} onHandleClose={handleShareClose} handleShare={handleShare} />
                 </Grid>
 
                 <Grid item>
@@ -498,11 +491,11 @@ const Sender = () => {
                       {/* Transfer statistics */}
                       {transferStats.speed > 0 && (
                         <Box sx={{ display: "flex", justifyContent: "space-between", px: 1, flexWrap: "wrap", gap: 1 }}>
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            Speed: {formatSpeed(transferStats.speed)}
+                          <Typography variant="body2" sx={{ color: "text.secondary", display: "flex", alignItems: "center", gap: 1 }}>
+                            <Speed fontSize="small" /> Speed: {formatSpeed(transferStats.speed)}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            Estimated Time: {formatTime(transferStats.eta)}
+                          <Typography variant="body2" sx={{ color: "text.secondary", display: "flex", alignItems: "center", gap: 1}}>
+                            <Schedule fontSize="small" /> Estimated Time: {formatTime(transferStats.eta)}
                           </Typography>
                           <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             Sent: {getFileSize(transferStats.bytesTransferred)} / {file ? getFileSize(file.size) : '0 B'}

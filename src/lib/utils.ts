@@ -16,9 +16,14 @@ export const formatSpeed = (bytesPerSecond: number) => {
 export const formatTime = (seconds: number) => {
   if (seconds === Infinity || isNaN(seconds)) return 'calculating...';
   if (seconds < 60) return `${Math.round(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return `${minutes}m ${remainingSeconds}s`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+  }
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
 };
 
 // export const getFileTypeIcon = (type: string) => {
