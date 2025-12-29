@@ -20,6 +20,7 @@ import {
   Share,
   Schedule,
   Speed,
+  SyncAlt,
 } from "@mui/icons-material";
 import {
   pageContainer,
@@ -497,7 +498,8 @@ const Sender = () => {
                           <Typography variant="body2" sx={{ color: "text.secondary", display: "flex", alignItems: "center", gap: 1}}>
                             <Schedule fontSize="small" /> Estimated Time: {formatTime(transferStats.eta)}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary", display: "flex", alignItems: "center", gap: 1}}>
+                            <SyncAlt fontSize="small" />
                             Sent: {getFileSize(transferStats.bytesTransferred)} / {file ? getFileSize(file.size) : '0 B'}
                           </Typography>
                         </Box>

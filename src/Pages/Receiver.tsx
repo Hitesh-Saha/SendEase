@@ -20,10 +20,11 @@ import {
   Link,
   Schedule,
   Speed,
+  SyncAlt,
 } from "@mui/icons-material";
 import FileItem from "../components/FileList/FileItem";
 import RecieverPanel from "../components/RecieverPanel/RecieverPanel";
-import { formatSpeed, formatTime, getAvatar, getName } from "../lib/utils";
+import { formatSpeed, formatTime, getAvatar, getFileSize, getName } from "../lib/utils";
 import { PeerData, RecievedFileType, RecieverData } from "../models/common";
 import { decryptAESKey, generateRSAPairKeys } from "../core/KeyGeneration";
 import { glassBackground, glassBackgroundLight, gradientAvatar, gradientButton, gradientText, pageContainer, progressBar, statusMessage, textField } from "../styles/index.styles";
@@ -160,6 +161,9 @@ const Receiver = () => {
       }
       if (connInstance.current) {
         connInstance.current.close();
+      }
+      if (workerRef.current) {
+        workerRef.current.postMessage({ type: 'cleanup' });
       }
     };
   }, []);
@@ -362,36 +366,46 @@ const Receiver = () => {
                           {progress.toFixed(1)}%
                         </Typography>
                       </Box>
-                      <Grid container spacing={1}>
-                        <Grid item xs={12} sm={6}>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              color: "text.secondary",
-                            }}
-                          >
-                            <Schedule fontSize="small" />
-                            Time Left: {estimatedTime || "Calculating..."}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              color: "text.secondary",
-                            }}
-                          >
-                            <Speed fontSize="small" />
-                            Speed: {speed || "Calculating..."}
-                          </Typography>
-                        </Grid>
-                      </Grid>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", px: 1, flexWrap: "wrap", gap: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            color: "text.secondary",
+                          }}
+                        >
+                          <Speed fontSize="small" />
+                          Speed: {speed || "Calculating..."}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            color: "text.secondary",
+                          }}
+                        >
+                          <Schedule fontSize="small" />
+                          Time Left: {estimatedTime || "Calculating..."}
+                        </Typography>
+
+                        <Typography 
+                          variant="body2" 
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            color: "text.secondary",
+                          }}
+                        >
+                          <SyncAlt fontSize="small" />
+                          Recieved: {getFileSize(receivedBytes.current)} / {file.current ? getFileSize( file.current.size) : '0 B'}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Grid>
                 )}
